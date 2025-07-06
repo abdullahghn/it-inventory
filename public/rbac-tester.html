@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Inventory - RBAC Testing Utility</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 6px; }
+        .button { background: #0070f3; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .button:hover { background: #0056b3; }
+        .button.danger { background: #dc3545; }
+        .button.success { background: #28a745; }
+        .button.warning { background: #ffc107; color: black; }
+        .result { background: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px; margin: 10px 0; white-space: pre-wrap; font-family: monospace; max-height: 300px; overflow-y: auto; }
+        .input-group { margin: 10px 0; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .input-group input, .input-group select, .input-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .flex { display: flex; gap: 10px; align-items: center; }
+        .role-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .role-super_admin { background: #6f42c1; color: white; }
+        .role-admin { background: #dc3545; color: white; }
+        .role-manager { background: #fd7e14; color: white; }
+        .role-user { background: #0d6efd; color: white; }
+        .role-viewer { background: #6c757d; color: white; }
+        .current-user { background: #e7f3ff; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        .test-results { background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 IT Inventory - RBAC Testing Utility</h1>
+        
+        <div class="current-user" id="currentUserInfo">
+            <h3>Current User Status</h3>
+            <p>Loading...</p>
+            <button class="button" onclick="checkCurrentUser()">Refresh User Info</button>
+        </div>
+
+        <div class="section">
+            <h2>🚀 Step 1: Promote to Super Admin</h2>
+            <p>First, you need super_admin privileges to test user management. Run this in your database:</p>
+            <div class="result">UPDATE "user" SET role = 'super_admin', updated_at = NOW() WHERE email = 'abdullah.arshad@coastline-fm.com';</div>
+            <p>Then logout and login again, or restart the dev server to refresh your session.</p>
+        </div>
+
+        <div class="section">
+            <h2>👥 Step 2: User Management Tests</h2>
+            
+            <div class="input-group">
+                <h4>Create Test User</h4>
+                <div class="flex">
+                    <input type="text" id="newUserName" placeholder="Full Name" value="Test User">
+                    <input type="email" id="newUserEmail" placeholder="Email" value="test.user@company.com">
+                    <select id="newUserRole">
+                        <option value="viewer">Viewer</option>
+                        <option value="user" selected>User</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                        <option value="super_admin">Super Admin</option>
+                    </select>
+                    <input type="text" id="newUserDept" placeholder="Department" value="IT">
+                    <button class="button success" onclick="createUser()">Create User</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <h4>Update User Role</h4>
+                <div class="flex">
+                    <input type="text" id="updateUserId" placeholder="User ID">
+                    <select id="updateUserRole">
+                        <option value="viewer">Viewer</option>
+                        <option value="user">User</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                        <option value="super_admin">Super Admin</option>
+                    </select>
+                    <button class="button warning" onclick="updateUser()">Update Role</button>
+                </div>
+            </div>
+
+            <div class="flex">
+                <button class="button" onclick="listUsers()">List All Users</button>
+                <button class="button" onclick="listUsersAsManager()">Test as Manager View</button>
+                <button class="button" onclick="listUsersAsUser()">Test as User View</button>
+            </div>
+
+            <div id="userResults" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>🎭 Step 3: Permission Testing</h2>
+            
+            <div class="input-group">
+                <h4>Test User Profile Access</h4>
+                <div class="flex">
+                    <input type="text" id="profileUserId" placeholder="User ID to view">
+                    <button class="button" onclick="getUserProfile()">Get Profile</button>
+                    <button class="button" onclick="getUserAssets()">Get User Assets</button>
+                </div>
+            </div>
+
+            <div class="flex">
+                <button class="button" onclick="runPermissionTests()">🧪 Run All Permission Tests</button>
+                <button class="button danger" onclick="clearResults()">Clear Results</button>
+            </div>
+
+            <div id="permissionResults" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>📋 Step 4: Asset Management Tests</h2>
+            
+            <div class="input-group">
+                <h4>Create Test Asset</h4>
+                <div class="flex">
+                    <input type="text" id="assetTag" placeholder="Asset Tag" value="LT-TEST001">
+                    <input type="text" id="assetName" placeholder="Asset Name" value="Test Laptop">
+                    <select id="assetCategory">
+                        <option value="laptop" selected>Laptop</option>
+                        <option value="desktop">Desktop</option>
+                        <option value="monitor">Monitor</option>
+                        <option value="phone">Phone</option>
+                    </select>
+                    <button class="button success" onclick="createAsset()">Create Asset</button>
+                </div>
+            </div>
+
+            <div class="flex">
+                <button class="button" onclick="listAssets()">List Assets</button>
+                <button class="button" onclick="searchAssets()">Search Assets</button>
+            </div>
+
+            <div id="assetResults" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Step 5: Real-time Testing Dashboard</h2>
+            <div class="test-results" id="liveTestResults">
+                <h4>Test Results will appear here...</h4>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // Utility Functions
+        async function apiCall(endpoint, options = {}) {
+            const baseUrl = window.location.origin;
+            try {
+                const response = await fetch(`${baseUrl}${endpoint}`, {
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                const data = await response.json();
+                const result = {
+                    status: response.status,
+                    ok: response.ok,
+                    data: data,
+                    endpoint: endpoint,
+                    method: options.method || 'GET'
+                };
+                
+                logTestResult(result);
+                return result;
+            } catch (error) {
+                const result = {
+                    status: 0,
+                    ok: false,
+                    error: error.message,
+                    endpoint: endpoint,
+                    method: options.method || 'GET'
+                };
+                logTestResult(result);
+                return result;
+            }
+        }
+
+        function logTestResult(result) {
+            const logDiv = document.getElementById('liveTestResults');
+            const timestamp = new Date().toLocaleTimeString();
+            const statusColor = result.ok ? '#28a745' : '#dc3545';
+            
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `
+                <div style="border-left: 4px solid ${statusColor}; padding: 10px; margin: 5px 0; background: white;">
+                    <strong>${timestamp}</strong> - ${result.method} ${result.endpoint}
+                    <span style="color: ${statusColor}; font-weight: bold;">[${result.status}]</span>
+                    <br>
+                    <small>${result.ok ? '✅ Success' : '❌ ' + (result.data?.error || result.error || 'Failed')}</small>
+                </div>
+            `;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function showResult(elementId, content) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent = JSON.stringify(content, null, 2);
+        }
+
+        function clearResults() {
+            ['userResults', 'permissionResults', 'assetResults'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
+            document.getElementById('liveTestResults').innerHTML = '<h4>Test Results cleared...</h4>';
+        }
+
+        function getRoleBadge(role) {
+            return `<span class="role-badge role-${role}">${role.toUpperCase()}</span>`;
+        }
+
+        // User Management Functions
+        async function checkCurrentUser() {
+            const result = await apiCall('/api/auth/session');
+            if (result.ok && result.data.user) {
+                currentUser = result.data.user;
+                document.getElementById('currentUserInfo').innerHTML = `
+                    <h3>Current User Status</h3>
+                    <p><strong>Name:</strong> ${currentUser.name}</p>
+                    <p><strong>Email:</strong> ${currentUser.email}</p>
+                    <p><strong>Role:</strong> ${getRoleBadge(currentUser.role)}</p>
+                    <p><strong>ID:</strong> ${currentUser.id}</p>
+                    <button class="button" onclick="checkCurrentUser()">Refresh User Info</button>
+                `;
+            } else {
+                document.getElementById('currentUserInfo').innerHTML = `
+                    <h3>❌ Not Logged In</h3>
+                    <p>Please <a href="/auth/signin">sign in</a> first.</p>
+                `;
+            }
+        }
+
+        async function createUser() {
+            const userData = {
+                name: document.getElementById('newUserName').value,
+                email: document.getElementById('newUserEmail').value,
+                role: document.getElementById('newUserRole').value,
+                department: document.getElementById('newUserDept').value,
+                isActive: true
+            };
+
+            const result = await apiCall('/api/users', {
+                method: 'POST',
+                body: JSON.stringify(userData)
+            });
+
+            showResult('userResults', result);
+        }
+
+        async function updateUser() {
+            const userId = document.getElementById('updateUserId').value;
+            const newRole = document.getElementById('updateUserRole').value;
+
+            if (!userId) {
+                alert('Please enter a User ID');
+                return;
+            }
+
+            const result = await apiCall(`/api/users/${userId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ role: newRole })
+            });
+
+            showResult('userResults', result);
+        }
+
+        async function listUsers() {
+            const result = await apiCall('/api/users?page=1&limit=20');
+            showResult('userResults', result);
+        }
+
+        async function listUsersAsManager() {
+            // This simulates what a manager would see
+            const result = await apiCall('/api/users?page=1&limit=20&role=user,manager');
+            showResult('userResults', result);
+        }
+
+        async function listUsersAsUser() {
+            // This simulates what a regular user would see
+            const result = await apiCall('/api/users?page=1&limit=20&isActive=true');
+            showResult('userResults', result);
+        }
+
+        async function getUserProfile() {
+            const userId = document.getElementById('profileUserId').value;
+            if (!userId) {
+                alert('Please enter a User ID');
+                return;
+            }
+
+            const result = await apiCall(`/api/users/${userId}`);
+            showResult('permissionResults', result);
+        }
+
+        async function getUserAssets() {
+            const userId = document.getElementById('profileUserId').value;
+            if (!userId) {
+                alert('Please enter a User ID');
+                return;
+            }
+
+            const result = await apiCall(`/api/users/${userId}/assets`);
+            showResult('permissionResults', result);
+        }
+
+        // Asset Management Functions
+        async function createAsset() {
+            const assetData = {
+                assetTag: document.getElementById('assetTag').value,
+                name: document.getElementById('assetName').value,
+                category: document.getElementById('assetCategory').value,
+                status: 'available',
+                condition: 'good'
+            };
+
+            const result = await apiCall('/api/assets', {
+                method: 'POST',
+                body: JSON.stringify(assetData)
+            });
+
+            showResult('assetResults', result);
+        }
+
+        async function listAssets() {
+            const result = await apiCall('/api/assets?page=1&limit=10');
+            showResult('assetResults', result);
+        }
+
+        async function searchAssets() {
+            const result = await apiCall('/api/assets?search=laptop&category=laptop');
+            showResult('assetResults', result);
+        }
+
+        // Comprehensive Permission Tests
+        async function runPermissionTests() {
+            if (!currentUser) {
+                alert('Please check current user first!');
+                return;
+            }
+
+            const tests = [
+                { name: 'List Users', endpoint: '/api/users' },
+                { name: 'Get Own Profile', endpoint: `/api/users/${currentUser.id}` },
+                { name: 'Get Own Assets', endpoint: `/api/users/${currentUser.id}/assets` },
+                { name: 'List Assets', endpoint: '/api/assets' },
+                { name: 'Create User (Admin Test)', endpoint: '/api/users', method: 'POST', body: { name: 'Test User', email: 'test@example.com', role: 'user' } },
+            ];
+
+            showResult('permissionResults', 'Running permission tests...\n\n');
+
+            for (const test of tests) {
+                const options = {};
+                if (test.method) options.method = test.method;
+                if (test.body) options.body = JSON.stringify(test.body);
+
+                const result = await apiCall(test.endpoint, options);
+                
+                // Small delay for readability
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            checkCurrentUser();
+        };
+    </script>
+</body>
+</html> 

@@ -1,0 +1,19 @@
+CREATE INDEX IF NOT EXISTS "account_userId_idx" ON "account" USING btree ("userId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "account_provider_idx" ON "account" USING btree ("provider");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "asset_assignments_asset_id_idx" ON "asset_assignments" USING btree ("asset_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "asset_assignments_user_id_idx" ON "asset_assignments" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "asset_assignments_is_active_idx" ON "asset_assignments" USING btree ("is_active");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "asset_assignments_assigned_at_idx" ON "asset_assignments" USING btree ("assigned_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "asset_assignments_returned_at_idx" ON "asset_assignments" USING btree ("returned_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "assets_status_idx" ON "assets" USING btree ("status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "assets_type_idx" ON "assets" USING btree ("type");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "assets_serial_number_idx" ON "assets" USING btree ("serial_number");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "assets_name_idx" ON "assets" USING btree ("name");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "assets_location_idx" ON "assets" USING btree ("location");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "maintenance_records_asset_id_idx" ON "maintenance_records" USING btree ("asset_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "maintenance_records_type_idx" ON "maintenance_records" USING btree ("type");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "maintenance_records_performed_at_idx" ON "maintenance_records" USING btree ("performed_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "session_userId_idx" ON "session" USING btree ("userId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "session_expires_idx" ON "session" USING btree ("expires");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "user_email_idx" ON "user" USING btree ("email");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "verificationToken_token_idx" ON "verificationToken" USING btree ("token");
