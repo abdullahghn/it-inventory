@@ -4,6 +4,8 @@ const nextConfig = {
     typedRoutes: false,
     optimizePackageImports: ['lucide-react', '@radix-ui/react-*'],
   },
+  // Move external packages to correct location (Next.js 15+)
+  serverExternalPackages: ['bcryptjs'],
   images: {
     domains: ['lh3.googleusercontent.com'],
   },

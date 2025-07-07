@@ -2,8 +2,18 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { assets } from '@/lib/db/schema'
 import { createMaintenance } from '@/actions/maintenance'
+import { requireRole } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 
 export default async function NewMaintenancePage() {
+  try {
+    // Check permissions - only manager and above can create maintenance records
+    await requireRole('manager')
+  } catch (error) {
+    // Redirect to dashboard with error message
+    redirect('/dashboard?error=unauthorized')
+  }
+
   // Optimized: Only fetch assets with essential fields for performance
   const assetList = await db
     .select({

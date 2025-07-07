@@ -14,8 +14,8 @@ export default async function DashboardPage() {
     recentAssignments,
     recentMaintenance
   ] = await Promise.all([
-    // Total assets count
-    db.select({ count: count() }).from(assets),
+    // Total assets count (excluding soft-deleted)
+    db.select({ count: count() }).from(assets).where(eq(assets.isDeleted, false)),
     
     // Total users count
     db.select({ count: count() }).from(user),

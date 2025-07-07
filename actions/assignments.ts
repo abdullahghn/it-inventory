@@ -6,9 +6,13 @@ import { assetAssignments, assets } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { eq, and } from 'drizzle-orm'
+import { requireRole } from '@/lib/auth'
 
 export async function assignAsset(formData: FormData) {
   try {
+    // Check permissions - only manager and above can assign assets
+    await requireRole('manager')
+    
     const data = {
       assetId: parseInt(formData.get('assetId') as string),
       userId: formData.get('userId') as string, // Keep as string since user.id is text
@@ -52,6 +56,9 @@ export async function assignAsset(formData: FormData) {
 
 export async function returnAsset(formData: FormData) {
   try {
+    // Check permissions - only manager and above can return assets
+    await requireRole('manager')
+    
     const assignmentId = parseInt(formData.get('assignmentId') as string)
     const notes = formData.get('notes') as string
 

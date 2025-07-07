@@ -44,8 +44,7 @@ export const assetCategoryEnum = pgEnum('asset_category', [
   'server',
   'network_device',
   'software_license',
-  'furniture',
-  'accessory',
+  'toner',
   'other'
 ])
 

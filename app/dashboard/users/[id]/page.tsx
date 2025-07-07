@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { user } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { auth } from '@/lib/auth'
+import { hasRole } from '@/lib/auth'
 
 interface UserProfilePageProps {
   params: Promise<{
@@ -13,6 +15,12 @@ interface UserProfilePageProps {
 export default async function UserProfilePage({ params }: UserProfilePageProps) {
   const { id } = await params
 
+  // Get current session for RBAC checks
+  const session = await auth()
+  if (!session?.user) {
+    notFound()
+  }
+
   // Fetch user details
   const userData = await db.select().from(user).where(eq(user.id, id))
   
@@ -22,6 +30,21 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
 
   const currentUser = userData[0]
 
+  // RBAC Protection: Users can only view their own profile or manager+ can view any profile
+  const isOwnProfile = session.user.id === currentUser.id
+  const canViewOtherProfiles = await hasRole('manager')
+  
+  if (!isOwnProfile && !canViewOtherProfiles) {
+    // Redirect to dashboard with unauthorized error if trying to view another user's profile
+    redirect('/dashboard?error=unauthorized')
+  }
+
+  // Check if current user can access users list
+  const canAccessUsersList = await hasRole('manager')
+
+  // Check if current user can edit this profile
+  const canEditProfile = session.user.id === currentUser.id || await hasRole('manager')
+
   return (
     <div>
       <div className="mb-6">
@@ -30,12 +53,31 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
             <h1 className="text-3xl font-bold text-gray-900">User Profile</h1>
             <p className="text-gray-600">{currentUser.name || 'Unknown User'}</p>
           </div>
-          <Link
-            href="/dashboard/users"
-            className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-          >
-            Back to Users
-          </Link>
+          <div className="flex space-x-3">
+            {canEditProfile && (
+              <Link
+                href={`/dashboard/users/${currentUser.id}/edit`}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+              >
+                Edit Profile
+              </Link>
+            )}
+            {canAccessUsersList ? (
+              <Link
+                href="/dashboard/users"
+                className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+              >
+                Back to Users
+              </Link>
+            ) : (
+              <Link
+                href="/dashboard"
+                className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+              >
+                Back to Dashboard
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

@@ -8,7 +8,7 @@ export const userRoleSchema = z.enum(['super_admin', 'admin', 'manager', 'user',
 
 export const assetStatusSchema = z.enum(['available', 'assigned', 'maintenance', 'repair', 'retired', 'lost', 'stolen'])
 
-export const assetCategorySchema = z.enum(['laptop', 'desktop', 'monitor', 'printer', 'phone', 'tablet', 'server', 'network_device', 'software_license', 'furniture', 'accessory', 'other'])
+export const assetCategorySchema = z.enum(['laptop', 'desktop', 'monitor', 'printer', 'phone', 'tablet', 'server', 'network_device', 'software_license', 'toner', 'other'])
 
 export const assetConditionSchema = z.enum(['excellent', 'good', 'fair', 'poor', 'damaged'])
 
@@ -38,7 +38,7 @@ export const createUserSchema = z.object({
 
 export const updateUserSchema = createUserSchema.partial().extend({
   id: z.string().min(1, 'User ID is required'),
-})
+}).omit({ email: true })
 
 // Asset validation schemas
 export const createAssetSchema = z.object({

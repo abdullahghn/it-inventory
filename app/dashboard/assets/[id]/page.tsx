@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
-import { assets } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { assets, assetAssignments } from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
+import { auth, getCurrentUser, hasRole } from '@/lib/auth'
+import DeleteAssetButton from '@/components/ui/DeleteAssetButton'
 
 interface AssetDetailPageProps {
   params: Promise<{
@@ -14,14 +16,77 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
   const { id } = await params
   const assetId = parseInt(id)
 
-  // Fetch asset details
-  const asset = await db.select().from(assets).where(eq(assets.id, assetId))
+  // Get current user and check permissions
+  const session = await auth()
+  const currentUser = await getCurrentUser()
   
-  if (!asset[0]) {
+  if (!session?.user || !currentUser) {
     notFound()
   }
 
-  const assetData = asset[0]
+  // Check permissions
+  const canViewAllAssets = await hasRole('manager')
+  const canAssignAssets = await hasRole('manager')
+  const canEditAssets = await hasRole('admin')
+  const canDeleteAssets = await hasRole('admin')
+
+  // Fetch asset details with RBAC
+  let assetData: any = null
+
+  if (canViewAllAssets) {
+    // Managers+ can view any asset
+    const asset = await db.select().from(assets).where(eq(assets.id, assetId))
+    assetData = asset[0]
+  } else {
+    // Users can only view assets assigned to them
+    const asset = await db
+      .select({
+        id: assets.id,
+        assetTag: assets.assetTag,
+        name: assets.name,
+        category: assets.category,
+        subcategory: assets.subcategory,
+        status: assets.status,
+        condition: assets.condition,
+        serialNumber: assets.serialNumber,
+        model: assets.model,
+        manufacturer: assets.manufacturer,
+        specifications: assets.specifications,
+        purchaseDate: assets.purchaseDate,
+        purchasePrice: assets.purchasePrice,
+        currentValue: assets.currentValue,
+        depreciationRate: assets.depreciationRate,
+        warrantyExpiry: assets.warrantyExpiry,
+        building: assets.building,
+        floor: assets.floor,
+        room: assets.room,
+        desk: assets.desk,
+        locationNotes: assets.locationNotes,
+        description: assets.description,
+        notes: assets.notes,
+        isDeleted: assets.isDeleted,
+        createdBy: assets.createdBy,
+        createdAt: assets.createdAt,
+        updatedAt: assets.updatedAt,
+      })
+      .from(assets)
+      .innerJoin(assetAssignments, eq(assets.id, assetAssignments.assetId))
+      .where(
+        and(
+          eq(assets.id, assetId),
+          eq(assetAssignments.userId, currentUser.id),
+          eq(assets.isDeleted, false),
+          eq(assetAssignments.isActive, true)
+        )
+      )
+      .limit(1)
+    
+    assetData = asset[0]
+  }
+  
+  if (!assetData) {
+    notFound()
+  }
   
   return (
     <div>
@@ -38,7 +103,21 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
             >
               Back to Assets
             </Link>
-            {assetData.status === 'available' && (
+            {canEditAssets && (
+              <Link
+                href={`/dashboard/assets/${assetData.id}/edit`}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+              >
+                Edit Asset
+              </Link>
+            )}
+            {canDeleteAssets && assetData.status !== 'assigned' && (
+              <DeleteAssetButton 
+                assetId={assetData.id} 
+                assetName={assetData.name} 
+              />
+            )}
+            {canAssignAssets && assetData.status === 'available' && (
               <Link
                 href={`/dashboard/assignments/new?assetId=${assetData.id}`}
                 className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"

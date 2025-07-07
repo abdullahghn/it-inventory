@@ -16,7 +16,7 @@ import { eq, and, or, like, gte, lte, inArray, sql, count } from 'drizzle-orm'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -31,7 +31,8 @@ export async function GET(
     }
     
     // Validate user ID
-    const userId = params.id
+    const { id } = await params
+    const userId = id
     if (!userId || userId.trim() === '') {
       return NextResponse.json({
         success: false,
@@ -329,7 +330,8 @@ export async function GET(
     })
     
   } catch (error: any) {
-    console.error(`GET /api/users/${params.id}/assets error:`, error)
+    const { id: userIdForLog } = await params
+    console.error(`GET /api/users/${userIdForLog}/assets error:`, error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json({

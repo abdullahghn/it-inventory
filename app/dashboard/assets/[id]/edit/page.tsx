@@ -1,25 +1,71 @@
 import Link from 'next/link'
-import { createAsset } from '@/actions/assets'
-import { requireRole } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
+import { db } from '@/lib/db'
+import { assets } from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
+import { requireRole, auth, getCurrentUser } from '@/lib/auth'
+import { updateAsset } from '@/actions/assets'
 
-export default async function NewAssetPage() {
+interface AssetEditPageProps {
+  params: Promise<{
+    id: string
+  }>
+}
+
+export default async function AssetEditPage({ params }: AssetEditPageProps) {
   try {
-    // Check permissions - only admin and above can create assets
+    // Check permissions - only admin and above can edit assets
     await requireRole('admin')
   } catch (error) {
-    // Redirect to dashboard with error message
-    redirect('/dashboard?error=unauthorized')
+    notFound()
   }
+
+  const { id } = await params
+  const assetId = parseInt(id)
+
+  // Get current user
+  const session = await auth()
+  const currentUser = await getCurrentUser()
+  
+  if (!session?.user || !currentUser) {
+    notFound()
+  }
+
+  // Fetch asset data
+  const asset = await db
+    .select()
+    .from(assets)
+    .where(and(
+      eq(assets.id, assetId),
+      eq(assets.isDeleted, false)
+    ))
+    .limit(1)
+
+  if (!asset[0]) {
+    notFound()
+  }
+
+  const assetData = asset[0]
+
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Add New Asset</h1>
-        <p className="text-gray-600">Create a new asset record</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Edit Asset</h1>
+            <p className="text-gray-600">{assetData.name}</p>
+          </div>
+          <Link
+            href={`/dashboard/assets/${assetData.id}`}
+            className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
+          >
+            Cancel
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
-        <form action={createAsset} className="space-y-6">
+        <form action={updateAsset.bind(null, assetId)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -28,11 +74,12 @@ export default async function NewAssetPage() {
               <input
                 type="text"
                 name="name"
+                defaultValue={assetData.name}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter asset name"
               />
             </div>
+            
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Asset Tag
@@ -40,20 +87,21 @@ export default async function NewAssetPage() {
               <input
                 type="text"
                 name="assetTag"
+                defaultValue={assetData.assetTag || ''}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Auto-generated if empty"
               />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category *
               </label>
-              <select 
-                name="category" 
+              <select
+                name="category"
+                defaultValue={assetData.category}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Select category</option>
                 <option value="laptop">Laptop</option>
                 <option value="desktop">Desktop</option>
                 <option value="monitor">Monitor</option>
@@ -67,57 +115,14 @@ export default async function NewAssetPage() {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Subcategory
-              </label>
-              <input
-                type="text"
-                name="subcategory"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter subcategory"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Serial Number
-              </label>
-              <input
-                type="text"
-                name="serialNumber"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter serial number"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Model
-              </label>
-              <input
-                type="text"
-                name="model"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter model"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Manufacturer
-              </label>
-              <input
-                type="text"
-                name="manufacturer"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter manufacturer"
-              />
-            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
-              <select 
-                name="status" 
-                defaultValue="available"
+              <select
+                name="status"
+                defaultValue={assetData.status}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="available">Available</option>
@@ -129,13 +134,14 @@ export default async function NewAssetPage() {
                 <option value="stolen">Stolen</option>
               </select>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Condition
               </label>
-              <select 
+              <select
                 name="condition"
-                defaultValue="good"
+                defaultValue={assetData.condition}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="excellent">Excellent</option>
@@ -145,79 +151,114 @@ export default async function NewAssetPage() {
                 <option value="damaged">Damaged</option>
               </select>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Purchase Price (SAR)
-              </label>
-              <input
-                type="number"
-                name="purchasePrice"
-                step="0.01"
-                min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter purchase price"
-              />
-            </div>
-          </div>
-
-          {/* Location Section */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Location Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Building
-                </label>
-                <input
-                  type="text"
-                  name="building"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Building name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Floor
-                </label>
-                <input
-                  type="text"
-                  name="floor"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Floor number"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Room
-                </label>
-                <input
-                  type="text"
-                  name="room"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Room number"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Desk/Position
-                </label>
-                <input
-                  type="text"
-                  name="desk"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Desk number"
-                />
-              </div>
-            </div>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Location Notes
+                Serial Number
               </label>
               <input
                 type="text"
-                name="locationNotes"
+                name="serialNumber"
+                defaultValue={assetData.serialNumber || ''}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Additional location details"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Model
+              </label>
+              <input
+                type="text"
+                name="model"
+                defaultValue={assetData.model || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Manufacturer
+              </label>
+              <input
+                type="text"
+                name="manufacturer"
+                defaultValue={assetData.manufacturer || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Building
+              </label>
+              <input
+                type="text"
+                name="building"
+                defaultValue={assetData.building || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Floor
+              </label>
+              <input
+                type="text"
+                name="floor"
+                defaultValue={assetData.floor || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Room
+              </label>
+              <input
+                type="text"
+                name="room"
+                defaultValue={assetData.room || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Desk
+              </label>
+              <input
+                type="text"
+                name="desk"
+                defaultValue={assetData.desk || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Purchase Price
+              </label>
+              <input
+                type="text"
+                name="purchasePrice"
+                defaultValue={assetData.purchasePrice || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Current Value
+              </label>
+              <input
+                type="text"
+                name="currentValue"
+                defaultValue={assetData.currentValue || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0.00"
               />
             </div>
           </div>
@@ -228,32 +269,34 @@ export default async function NewAssetPage() {
             </label>
             <textarea
               name="description"
+              defaultValue={assetData.description || ''}
               rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter asset description"
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Additional Notes
+              Notes
             </label>
             <textarea
               name="notes"
-              rows={3}
+              defaultValue={assetData.notes || ''}
+              rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Any additional notes"
             />
           </div>
+
           <div className="flex space-x-4">
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded"
             >
-              Create Asset
+              Update Asset
             </button>
             <Link
-              href="/dashboard/assets"
-              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+              href={`/dashboard/assets/${assetData.id}`}
+              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded"
             >
               Cancel
             </Link>

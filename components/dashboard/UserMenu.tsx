@@ -2,6 +2,7 @@
 
 import { signOut } from 'next-auth/react'
 import { User } from 'next-auth'
+import Link from 'next/link'
 
 interface UserMenuProps {
   user: User & {
@@ -58,6 +59,15 @@ export function UserMenu({ user }: UserMenuProps) {
           )}
         </div>
       </div>
+      <Link
+        href={`/dashboard/users/${user.id}`}
+        className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600"
+        title="View Profile"
+      >
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      </Link>
       <button
         onClick={handleSignOut}
         className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600"

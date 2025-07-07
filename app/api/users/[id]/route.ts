@@ -16,7 +16,7 @@ import { eq, and } from 'drizzle-orm'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -31,7 +31,8 @@ export async function GET(
     }
     
     // Validate user ID
-    const userId = params.id
+    const { id } = await params
+    const userId = id
     if (!userId || userId.trim() === '') {
       return NextResponse.json({
         success: false,
@@ -40,12 +41,38 @@ export async function GET(
     }
     
     // RBAC: Check permissions
-    const canViewAllUsers = await hasRole('manager')
-    const canViewFullDetails = await hasRole('admin')
+    const canViewAllUsers = await hasRole('admin')
+    const canViewBasicInfo = await hasRole('manager')
     const isOwnProfile = currentUser.id === userId
     
-    // Users can only view their own profile unless they're manager+
-    if (!canViewAllUsers && !isOwnProfile) {
+    // Fetch user data first to check department
+    const targetUser = await dbUtils.findOne(
+      () => db
+        .select({
+          id: userTable.id,
+          department: userTable.department,
+        })
+        .from(userTable)
+        .where(eq(userTable.id, userId))
+        .limit(1),
+      'User',
+      userId
+    )
+    
+    // Department-based access control for managers  
+    const isSameDepartment = currentUser.department && targetUser.department && 
+                             currentUser.department.toLowerCase() === targetUser.department.toLowerCase()
+    
+    // Permission hierarchy:
+    // - Users: Own profile only
+    // - Managers: Own profile + same department (full), other departments (read-only)
+    // - Admins: All users (full access)
+    const canView = isOwnProfile || 
+                   canViewAllUsers || 
+                   (canViewBasicInfo && isSameDepartment) ||
+                   (canViewBasicInfo && !isOwnProfile && !isSameDepartment) // Read-only for other depts
+    
+    if (!canView) {
       return NextResponse.json({
         success: false,
         error: 'Insufficient permissions to view this user profile',
@@ -64,7 +91,7 @@ export async function GET(
     }
     
     // Add more fields based on permissions
-    if (canViewFullDetails || isOwnProfile) {
+    if (canViewAllUsers || isOwnProfile || (canViewBasicInfo && isSameDepartment)) {
       selectFields = {
         ...selectFields,
         jobTitle: userTable.jobTitle,
@@ -74,7 +101,7 @@ export async function GET(
         lastLoginAt: userTable.lastLoginAt,
         updatedAt: userTable.updatedAt,
       }
-    } else if (canViewAllUsers) {
+    } else if (canViewBasicInfo) {
       selectFields = {
         ...selectFields,
         jobTitle: userTable.jobTitle,
@@ -82,23 +109,12 @@ export async function GET(
       }
     }
     
-    // Additional constraints for non-managers
-    const whereConditions = [eq(userTable.id, userId)]
-    
-    if (!canViewAllUsers && !isOwnProfile) {
-      // Regular users can only see active users in their department
-      whereConditions.push(
-        eq(userTable.isActive, true),
-        eq(userTable.department, currentUser.department || '')
-      )
-    }
-    
     // Fetch user from database
     const user = await dbUtils.findOne(
       () => db
         .select(selectFields)
         .from(userTable)
-        .where(and(...whereConditions))
+        .where(eq(userTable.id, userId))
         .limit(1),
       'User',
       userId
@@ -109,13 +125,15 @@ export async function GET(
       data: user,
       permissions: {
         canViewAllUsers,
-        canViewFullDetails,
+        canViewBasicInfo,
         isOwnProfile,
+        isSameDepartment,
       },
     })
     
   } catch (error: any) {
-    console.error(`GET /api/users/${params.id} error:`, error)
+    const { id: userIdForLog } = await params
+    console.error(`GET /api/users/${userIdForLog} error:`, error)
     
     if (error.message === 'Authentication required') {
       return NextResponse.json({
@@ -145,7 +163,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -160,7 +178,8 @@ export async function PUT(
     }
     
     // Validate user ID
-    const userId = params.id
+    const { id } = await params
+    const userId = id
     if (!userId || userId.trim() === '') {
       return NextResponse.json({
         success: false,
@@ -177,15 +196,7 @@ export async function PUT(
     const canUpdateBasicInfo = await hasRole('manager')
     const isOwnProfile = currentUser.id === userId
     
-    // Users can only update their own profile unless they're admin+
-    if (!canUpdateAllUsers && !isOwnProfile) {
-      return NextResponse.json({
-        success: false,
-        error: 'Insufficient permissions to update this user',
-      }, { status: 403 })
-    }
-    
-    // Check if user exists and get current data
+    // Check if user exists and get current data for department comparison
     const existingUser = await dbUtils.findOne(
       () => db
         .select({
@@ -193,6 +204,7 @@ export async function PUT(
           role: userTable.role,
           isActive: userTable.isActive,
           department: userTable.department,
+          employeeId: userTable.employeeId,
         })
         .from(userTable)
         .where(eq(userTable.id, userId))
@@ -201,27 +213,80 @@ export async function PUT(
       userId
     )
     
-    // Remove id from update data
-    const { id, ...userUpdateData } = updateData
+    // Department-based access control for managers
+    const isSameDepartment = currentUser.department && existingUser.department && 
+                             currentUser.department.toLowerCase() === existingUser.department.toLowerCase()
+    
+    // Permission hierarchy:
+    // - Users: Own profile only
+    // - Managers: Own profile + same department users (edit), other departments (read-only)
+    // - Admins: All users (edit)
+    const canEdit = isOwnProfile || 
+                   (canUpdateAllUsers) || 
+                   (canUpdateBasicInfo && isSameDepartment)
+    
+    const canViewOnly = canEdit || 
+                       (canUpdateBasicInfo && !isOwnProfile && !isSameDepartment)
+    
+    if (!canEdit && !canViewOnly) {
+      return NextResponse.json({
+        success: false,
+        error: 'Insufficient permissions to access this user',
+      }, { status: 403 })
+    }
+    
+    // If this is a read-only request (no edit permissions), block the update
+    if (!canEdit) {
+      return NextResponse.json({
+        success: false,
+        error: 'Read-only access: Cannot edit users from other departments',
+      }, { status: 403 })
+    }
+    
+    // Remove id from update data (email already excluded from schema)
+    const { id: _, ...userUpdateData } = updateData
+    
+    // Skip employeeId update if it's the same as current (treat null and empty string as equivalent)
+    const currentEmployeeId = existingUser.employeeId || ''
+    const newEmployeeId = userUpdateData.employeeId || ''
+    if (currentEmployeeId === newEmployeeId) {
+      delete userUpdateData.employeeId
+    }
     
          // RBAC: Restrict what fields can be updated based on role
      const sanitizedUpdateData: any = {}
      
      if (isOwnProfile && !canUpdateBasicInfo) {
-       // Regular users can only update basic personal info
-       const allowedFields = ['name', 'phone', 'jobTitle'] as const
+       // Regular users can update their own profile information (except department)
+       const allowedFields = ['name', 'phone', 'jobTitle', 'employeeId'] as const
        for (const field of allowedFields) {
          if (userUpdateData[field] !== undefined) {
            sanitizedUpdateData[field] = (userUpdateData as any)[field]
          }
        }
+       
+       // Department changes require Admin+ permissions (even for own profile)
+       if (userUpdateData.department && userUpdateData.department !== existingUser.department) {
+         return NextResponse.json({
+           success: false,
+           error: 'Admin role required to change department assignments',
+         }, { status: 403 })
+       }
      } else if (canUpdateBasicInfo && !canUpdateAllUsers) {
-       // Managers can update more fields but not role/security settings
-       const allowedFields = ['name', 'phone', 'jobTitle', 'department', 'employeeId'] as const
+       // Managers can update basic fields but not role/security settings or department assignments
+       const allowedFields = ['name', 'phone', 'jobTitle', 'employeeId'] as const
        for (const field of allowedFields) {
          if (userUpdateData[field] !== undefined) {
            sanitizedUpdateData[field] = (userUpdateData as any)[field]
          }
+       }
+       
+       // Department changes require Admin+ permissions
+       if (userUpdateData.department && userUpdateData.department !== existingUser.department) {
+         return NextResponse.json({
+           success: false,
+           error: 'Admin role required to change user department assignments',
+         }, { status: 403 })
        }
      } else if (canUpdateAllUsers) {
       // Admins can update all fields
@@ -281,7 +346,8 @@ export async function PUT(
     })
     
   } catch (error: any) {
-    console.error(`PUT /api/users/${params.id} error:`, error)
+    const { id: userIdForLog } = await params
+    console.error(`PUT /api/users/${userIdForLog} error:`, error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json({
@@ -305,10 +371,23 @@ export async function PUT(
       }, { status: 404 })
     }
     
-    if (error.message.includes('already exists')) {
+    if (error.message.includes('already exists') || error.code === '23505') {
+      // Check which field is causing the unique constraint violation
+      let fieldError = 'already exists'
+      if (error.detail || error.message) {
+        const errorDetail = error.detail || error.message
+        if (errorDetail.includes('email')) {
+          fieldError = 'Email already exists'
+        } else if (errorDetail.includes('employee_id')) {
+          fieldError = 'Employee ID already exists'
+        } else {
+          fieldError = 'A field with this value already exists'
+        }
+      }
+      
       return NextResponse.json({
         success: false,
-        error: 'Email already exists',
+        error: fieldError,
       }, { status: 409 })
     }
     

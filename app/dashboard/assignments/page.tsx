@@ -3,8 +3,12 @@ import { db } from '@/lib/db'
 import { assetAssignments, assets, user } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { returnAsset } from '@/actions/assignments'
+import { hasRole } from '@/lib/auth'
 
 export default async function AssignmentsPage() {
+  // Check permissions
+  const canManageAssignments = await hasRole('manager')
+  
   // Fetch assignments with asset and user details
   const assignmentList = await db
     .select({
@@ -29,12 +33,14 @@ export default async function AssignmentsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Equipment Assignments</h1>
           <p className="text-gray-600">Manage asset assignments to users</p>
         </div>
-        <Link 
-          href="/dashboard/assignments/new"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        >
-          New Assignment
-        </Link>
+        {canManageAssignments && (
+          <Link 
+            href="/dashboard/assignments/new"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            New Assignment
+          </Link>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow">
@@ -109,7 +115,7 @@ export default async function AssignmentsPage() {
                         >
                           View
                         </Link>
-                        {!assignment.returnedAt && (
+                        {canManageAssignments && !assignment.returnedAt && (
                           <form action={returnAsset} className="inline">
                             <input type="hidden" name="assignmentId" value={assignment.id} />
                             <button 

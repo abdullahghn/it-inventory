@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Inventory - Role Testing Checklist</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .role-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 6px; }
+        .button { background: #0070f3; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .button:hover { background: #0056b3; }
+        .button.danger { background: #dc3545; }
+        .button.success { background: #28a745; }
+        .button.warning { background: #ffc107; color: black; }
+        .checklist { margin: 10px 0; }
+        .checklist input[type="checkbox"] { margin-right: 8px; }
+        .checklist label { cursor: pointer; }
+        .role-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .role-super_admin { background: #6f42c1; color: white; }
+        .role-admin { background: #dc3545; color: white; }
+        .role-manager { background: #fd7e14; color: white; }
+        .role-user { background: #0d6efd; color: white; }
+        .role-viewer { background: #6c757d; color: white; }
+        .current-role { background: #e7f3ff; padding: 10px; border-radius: 6px; margin: 10px 0; }
+        .test-result { margin: 5px 0; padding: 8px; border-radius: 4px; }
+        .pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .pending { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .progress-bar { width: 100%; height: 20px; background: #e9ecef; border-radius: 10px; margin: 10px 0; }
+        .progress-fill { height: 100%; background: #28a745; border-radius: 10px; transition: width 0.3s ease; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 IT Inventory - Role Testing Checklist</h1>
+        
+        <div class="current-role" id="currentRole">
+            <h3>Current Role: <span id="roleDisplay">Unknown</span></h3>
+            <button class="button" onclick="checkCurrentRole()">Check Current Role</button>
+        </div>
+
+        <div class="role-section">
+            <h2>🎯 Role Promotion Controls</h2>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="button" onclick="promoteToRole('viewer')">
+                    <span class="role-badge role-viewer">VIEWER</span>
+                </button>
+                <button class="button" onclick="promoteToRole('user')">
+                    <span class="role-badge role-user">USER</span>
+                </button>
+                <button class="button" onclick="promoteToRole('manager')">
+                    <span class="role-badge role-manager">MANAGER</span>
+                </button>
+                <button class="button" onclick="promoteToRole('admin')">
+                    <span class="role-badge role-admin">ADMIN</span>
+                </button>
+                <button class="button" onclick="promoteToRole('super_admin')">
+                    <span class="role-badge role-super_admin">SUPER_ADMIN</span>
+                </button>
+            </div>
+            <p><strong>⚠️ Important:</strong> After changing roles, sign out and sign back in to refresh your session!</p>
+        </div>
+
+        <div class="role-section">
+            <h2>📊 Testing Progress</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <p id="progressText">0% Complete</p>
+        </div>
+
+        <!-- Viewer Role Tests -->
+        <div class="role-section">
+            <h2><span class="role-badge role-viewer">VIEWER</span> Role Tests</h2>
+            <div class="checklist">
+                <h4>Expected: Read-only access to most data</h4>
+                <div><input type="checkbox" id="viewer-1" onchange="updateProgress()"> <label for="viewer-1">✅ Can view dashboard</label></div>
+                <div><input type="checkbox" id="viewer-2" onchange="updateProgress()"> <label for="viewer-2">✅ Can view assets list</label></div>
+                <div><input type="checkbox" id="viewer-3" onchange="updateProgress()"> <label for="viewer-3">✅ Can view own profile</label></div>
+                <div><input type="checkbox" id="viewer-4" onchange="updateProgress()"> <label for="viewer-4">❌ Cannot create assets</label></div>
+                <div><input type="checkbox" id="viewer-5" onchange="updateProgress()"> <label for="viewer-5">❌ Cannot edit users</label></div>
+                <div><input type="checkbox" id="viewer-6" onchange="updateProgress()"> <label for="viewer-6">❌ Cannot view other users' detailed profiles</label></div>
+                <div><input type="checkbox" id="viewer-7" onchange="updateProgress()"> <label for="viewer-7">❌ Cannot access user management</label></div>
+            </div>
+        </div>
+
+        <!-- User Role Tests -->
+        <div class="role-section">
+            <h2><span class="role-badge role-user">USER</span> Role Tests</h2>
+            <div class="checklist">
+                <h4>Expected: Can manage own data, limited access to others</h4>
+                <div><input type="checkbox" id="user-1" onchange="updateProgress()"> <label for="user-1">✅ Can view own profile</label></div>
+                <div><input type="checkbox" id="user-2" onchange="updateProgress()"> <label for="user-2">✅ Can edit own profile</label></div>
+                <div><input type="checkbox" id="user-3" onchange="updateProgress()"> <label for="user-3">✅ Can view own assets</label></div>
+                <div><input type="checkbox" id="user-4" onchange="updateProgress()"> <label for="user-4">✅ Can view basic user list</label></div>
+                <div><input type="checkbox" id="user-5" onchange="updateProgress()"> <label for="user-5">❌ Cannot view other users' detailed profiles</label></div>
+                <div><input type="checkbox" id="user-6" onchange="updateProgress()"> <label for="user-6">❌ Cannot create users</label></div>
+                <div><input type="checkbox" id="user-7" onchange="updateProgress()"> <label for="user-7">❌ Cannot edit other users</label></div>
+                <div><input type="checkbox" id="user-8" onchange="updateProgress()"> <label for="user-8">❌ Cannot create assets</label></div>
+            </div>
+        </div>
+
+        <!-- Manager Role Tests -->
+        <div class="role-section">
+            <h2><span class="role-badge role-manager">MANAGER</span> Role Tests</h2>
+            <div class="checklist">
+                <h4>Expected: Can manage team members and assets</h4>
+                <div><input type="checkbox" id="manager-1" onchange="updateProgress()"> <label for="manager-1">✅ Can view all users</label></div>
+                <div><input type="checkbox" id="manager-2" onchange="updateProgress()"> <label for="manager-2">✅ Can edit team members</label></div>
+                <div><input type="checkbox" id="manager-3" onchange="updateProgress()"> <label for="manager-3">❌ Cannot create assets</label></div>
+                <div><input type="checkbox" id="manager-4" onchange="updateProgress()"> <label for="manager-4">❌ Cannot edit assets</label></div>
+                <div><input type="checkbox" id="manager-5" onchange="updateProgress()"> <label for="manager-5">❌ Cannot create users</label></div>
+                <div><input type="checkbox" id="manager-6" onchange="updateProgress()"> <label for="manager-6">❌ Cannot promote to admin</label></div>
+                <div><input type="checkbox" id="manager-7" onchange="updateProgress()"> <label for="manager-7">❌ Cannot delete users</label></div>
+                <div><input type="checkbox" id="manager-8" onchange="updateProgress()"> <label for="manager-8">❌ Cannot access admin features</label></div>
+            </div>
+        </div>
+
+        <!-- Admin Role Tests -->
+        <div class="role-section">
+            <h2><span class="role-badge role-admin">ADMIN</span> Role Tests</h2>
+            <div class="checklist">
+                <h4>Expected: Can manage all users and assets</h4>
+                <div><input type="checkbox" id="admin-1" onchange="updateProgress()"> <label for="admin-1">✅ Can manage all users</label></div>
+                <div><input type="checkbox" id="admin-2" onchange="updateProgress()"> <label for="admin-2">✅ Can create/edit/delete assets</label></div>
+                <div><input type="checkbox" id="admin-3" onchange="updateProgress()"> <label for="admin-3">✅ Can create new users</label></div>
+                <div><input type="checkbox" id="admin-4" onchange="updateProgress()"> <label for="admin-4">✅ Can promote users to manager</label></div>
+                <div><input type="checkbox" id="admin-5" onchange="updateProgress()"> <label for="admin-5">✅ Can view all user details</label></div>
+                <div><input type="checkbox" id="admin-6" onchange="updateProgress()"> <label for="admin-6">✅ Can access admin features</label></div>
+                <div><input type="checkbox" id="admin-7" onchange="updateProgress()"> <label for="admin-7">❌ Cannot promote to super_admin</label></div>
+                <div><input type="checkbox" id="admin-8" onchange="updateProgress()"> <label for="admin-8">❌ Cannot access super admin features</label></div>
+            </div>
+        </div>
+
+        <!-- Super Admin Role Tests -->
+        <div class="role-section">
+            <h2><span class="role-badge role-super_admin">SUPER_ADMIN</span> Role Tests</h2>
+            <div class="checklist">
+                <h4>Expected: Full system access</h4>
+                <div><input type="checkbox" id="super-1" onchange="updateProgress()"> <label for="super-1">✅ Can manage all users</label></div>
+                <div><input type="checkbox" id="super-2" onchange="updateProgress()"> <label for="super-2">✅ Can promote users to any role</label></div>
+                <div><input type="checkbox" id="super-3" onchange="updateProgress()"> <label for="super-3">✅ Can create super admin users</label></div>
+                <div><input type="checkbox" id="super-4" onchange="updateProgress()"> <label for="super-4">✅ Can access all system features</label></div>
+                <div><input type="checkbox" id="super-5" onchange="updateProgress()"> <label for="super-5">✅ Can view all data</label></div>
+                <div><input type="checkbox" id="super-6" onchange="updateProgress()"> <label for="super-6">✅ Can manage system settings</label></div>
+            </div>
+        </div>
+
+        <div class="role-section">
+            <h2>🎯 Quick Test Actions</h2>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="button" onclick="testDashboardAccess()">Test Dashboard Access</button>
+                <button class="button" onclick="testUserManagement()">Test User Management</button>
+                <button class="button" onclick="testAssetManagement()">Test Asset Management</button>
+                <button class="button" onclick="testRolePermissions()">Test Role Permissions</button>
+                <button class="button danger" onclick="resetChecklist()">Reset Checklist</button>
+            </div>
+        </div>
+
+        <div class="role-section">
+            <h2>📋 Test Results Log</h2>
+            <div id="testResults">
+                <p>Test results will appear here...</p>
+            </div>
+            <button class="button" onclick="clearResults()">Clear Results</button>
+        </div>
+    </div>
+
+    <script>
+        let currentRole = 'unknown';
+        const totalTests = 38; // Total number of checkboxes
+
+        async function checkCurrentRole() {
+            try {
+                const response = await fetch('/api/auth/session');
+                const data = await response.json();
+                
+                if (data.user?.role) {
+                    currentRole = data.user.role;
+                    document.getElementById('roleDisplay').innerHTML = `<span class="role-badge role-${currentRole}">${currentRole.toUpperCase()}</span>`;
+                } else {
+                    document.getElementById('roleDisplay').textContent = 'Unknown (Please sign in)';
+                }
+            } catch (error) {
+                console.error('Error checking role:', error);
+                document.getElementById('roleDisplay').textContent = 'Error checking role';
+            }
+        }
+
+        async function promoteToRole(role) {
+            try {
+                const response = await fetch('/api/admin/promote', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'abdullah.arshad@coastline-fm.com',
+                        role: role
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    logResult(`✅ Successfully promoted to ${role}. Please sign out and sign back in!`, 'pass');
+                    currentRole = role;
+                    document.getElementById('roleDisplay').innerHTML = `<span class="role-badge role-${role}">${role.toUpperCase()}</span>`;
+                } else {
+                    logResult(`❌ Failed to promote to ${role}: ${result.error}`, 'fail');
+                }
+            } catch (error) {
+                console.error('Promotion error:', error);
+                logResult(`❌ Error promoting to ${role}: ${error.message}`, 'fail');
+            }
+        }
+
+        function updateProgress() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            const checked = document.querySelectorAll('input[type="checkbox"]:checked');
+            const percentage = Math.round((checked.length / checkboxes.length) * 100);
+            
+            document.getElementById('progressFill').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = `${percentage}% Complete (${checked.length}/${checkboxes.length} tests)`;
+        }
+
+        function resetChecklist() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => checkbox.checked = false);
+            updateProgress();
+            logResult('📋 Checklist reset', 'pending');
+        }
+
+        function logResult(message, type) {
+            const resultsDiv = document.getElementById('testResults');
+            const timestamp = new Date().toLocaleTimeString();
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.textContent = `${timestamp}: ${message}`;
+            resultsDiv.appendChild(resultDiv);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '<p>Test results will appear here...</p>';
+        }
+
+        // Quick test functions
+        async function testDashboardAccess() {
+            try {
+                window.open('/dashboard', '_blank');
+                logResult('🏠 Dashboard access test launched in new tab', 'pending');
+            } catch (error) {
+                logResult('❌ Dashboard access test failed', 'fail');
+            }
+        }
+
+        async function testUserManagement() {
+            try {
+                window.open('/dashboard/users', '_blank');
+                logResult('👥 User management test launched in new tab', 'pending');
+            } catch (error) {
+                logResult('❌ User management test failed', 'fail');
+            }
+        }
+
+        async function testAssetManagement() {
+            try {
+                window.open('/dashboard/assets', '_blank');
+                logResult('📦 Asset management test launched in new tab', 'pending');
+            } catch (error) {
+                logResult('❌ Asset management test failed', 'fail');
+            }
+        }
+
+        async function testRolePermissions() {
+            try {
+                window.open('/rbac-tester.html', '_blank');
+                logResult('🔒 Role permissions test launched in new tab', 'pending');
+            } catch (error) {
+                logResult('❌ Role permissions test failed', 'fail');
+            }
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            checkCurrentRole();
+            updateProgress();
+        };
+    </script>
+</body>
+</html> 

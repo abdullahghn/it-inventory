@@ -7,7 +7,7 @@ import {
   type UpdateAsset 
 } from '@/lib/validations'
 import { dbUtils } from '@/lib/db/utils'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, requireRole } from '@/lib/auth'
 import { eq, and } from 'drizzle-orm'
 
 // ============================================================================
@@ -16,14 +16,15 @@ import { eq, and } from 'drizzle-orm'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
     await requireAuth()
     
     // Validate asset ID
-    const assetId = parseInt(params.id)
+    const { id } = await params
+    const assetId = parseInt(id)
     if (isNaN(assetId) || assetId <= 0) {
       return NextResponse.json({
         success: false,
@@ -51,7 +52,8 @@ export async function GET(
     })
     
   } catch (error: any) {
-    console.error(`GET /api/assets/${params.id} error:`, error)
+    const { id: assetIdForLog } = await params
+    console.error(`GET /api/assets/${assetIdForLog} error:`, error)
     
     if (error.message === 'Authentication required') {
       return NextResponse.json({
@@ -81,14 +83,18 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
     const session = await requireAuth()
     
+    // Check permissions - only admin and above can update assets
+    await requireRole('admin')
+    
     // Validate asset ID
-    const assetId = parseInt(params.id)
+    const { id } = await params
+    const assetId = parseInt(id)
     if (isNaN(assetId) || assetId <= 0) {
       return NextResponse.json({
         success: false,
@@ -101,7 +107,7 @@ export async function PUT(
     const updateData = updateAssetSchema.parse({ ...body, id: assetId })
     
     // Remove id from update data (it's used for validation only)
-    const { id, ...assetUpdateData } = updateData
+    const { id: _, ...assetUpdateData } = updateData
     
     // Update asset in database
     const updatedAsset = await dbUtils.update(
@@ -127,7 +133,8 @@ export async function PUT(
     })
     
   } catch (error: any) {
-    console.error(`PUT /api/assets/${params.id} error:`, error)
+    const { id: assetIdForLog } = await params
+    console.error(`PUT /api/assets/${assetIdForLog} error:`, error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json({
@@ -172,14 +179,18 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
     const session = await requireAuth()
     
+    // Check permissions - only admin and above can delete assets
+    await requireRole('admin')
+    
     // Validate asset ID
-    const assetId = parseInt(params.id)
+    const { id } = await params
+    const assetId = parseInt(id)
     if (isNaN(assetId) || assetId <= 0) {
       return NextResponse.json({
         success: false,
@@ -234,7 +245,8 @@ export async function DELETE(
     })
     
   } catch (error: any) {
-    console.error(`DELETE /api/assets/${params.id} error:`, error)
+    const { id: assetIdForLog } = await params
+    console.error(`DELETE /api/assets/${assetIdForLog} error:`, error)
     
     if (error.message === 'Authentication required') {
       return NextResponse.json({

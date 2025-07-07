@@ -14,6 +14,7 @@ import {
   DuplicateError,
   formatConstraintError 
 } from '@/lib/db/utils'
+import { requireRole } from '@/lib/auth'
 
 function generateAssetTag(): string {
   const timestamp = Date.now().toString()
@@ -23,6 +24,9 @@ function generateAssetTag(): string {
 
 export async function createAsset(formData: FormData) {
   try {
+    // Check permissions - only admin and above can create assets
+    await requireRole('admin')
+    
     console.log('Form data received:', Object.fromEntries(formData))
     
     // Get and process form data
@@ -113,42 +117,66 @@ export async function createAsset(formData: FormData) {
 
 export async function updateAsset(id: number, formData: FormData) {
   try {
+    // Check permissions - only admin and above can update assets
+    await requireRole('admin')
+    
+    console.log('Updating asset ID:', id)
+    console.log('Form data received:', Object.fromEntries(formData))
+    
     const data = {
-      assetTag: formData.get('assetTag') as string,
-      name: formData.get('name') as string,
+      assetTag: (formData.get('assetTag') as string)?.trim() || undefined,
+      name: (formData.get('name') as string)?.trim(),
       category: formData.get('category') as string,
-      subcategory: formData.get('subcategory') as string,
-      serialNumber: formData.get('serialNumber') as string,
-      model: formData.get('model') as string,
-      manufacturer: formData.get('manufacturer') as string,
+      subcategory: (formData.get('subcategory') as string)?.trim() || undefined,
+      serialNumber: (formData.get('serialNumber') as string)?.trim() || undefined,
+      model: (formData.get('model') as string)?.trim() || undefined,
+      manufacturer: (formData.get('manufacturer') as string)?.trim() || undefined,
       status: formData.get('status') as string,
       condition: formData.get('condition') as string,
       
       // Location fields - structured
-      building: formData.get('building') as string,
-      floor: formData.get('floor') as string,
-      room: formData.get('room') as string,
-      desk: formData.get('desk') as string,
-      locationNotes: formData.get('locationNotes') as string,
+      building: (formData.get('building') as string)?.trim() || undefined,
+      floor: (formData.get('floor') as string)?.trim() || undefined,
+      room: (formData.get('room') as string)?.trim() || undefined,
+      desk: (formData.get('desk') as string)?.trim() || undefined,
+      locationNotes: (formData.get('locationNotes') as string)?.trim() || undefined,
       
       // Financial fields
-      purchasePrice: formData.get('purchasePrice') as string || null,
-      currentValue: formData.get('currentValue') as string || null,
+      purchasePrice: (() => {
+        const price = formData.get('purchasePrice') as string
+        return price && price.trim() !== '' ? price.trim() : undefined
+      })(),
+      currentValue: (() => {
+        const value = formData.get('currentValue') as string
+        return value && value.trim() !== '' ? value.trim() : undefined
+      })(),
       
       // Metadata
-      description: formData.get('description') as string,
-      notes: formData.get('notes') as string,
-      updatedAt: new Date(),
+      description: (formData.get('description') as string)?.trim() || undefined,
+      notes: (formData.get('notes') as string)?.trim() || undefined,
     }
 
-    const validatedData = updateAssetSchema.parse(data)
+    console.log('Processed data:', data)
+
+    // Validate required fields
+    if (!data.name || data.name.trim() === '') {
+      throw new Error('Asset name is required')
+    }
+
+    const validatedData = updateAssetSchema.parse({ ...data, id })
+    console.log('Validated data:', validatedData)
+
+    // Remove id from update data (it's used for validation only)
+    const { id: _, ...updateData } = validatedData
 
     // Use enhanced database utilities
-    await dbUtils.update(
-      () => db.update(assets).set(validatedData).where(eq(assets.id, id)).returning(),
+    const result = await dbUtils.update(
+      () => db.update(assets).set({ ...updateData, updatedAt: new Date() }).where(eq(assets.id, id)).returning(),
       'Asset',
       id
     )
+    
+    console.log('Update result:', result)
 
     revalidatePath('/dashboard/assets')
     revalidatePath(`/dashboard/assets/${id}`)
@@ -163,12 +191,29 @@ export async function updateAsset(id: number, formData: FormData) {
       throw new Error('Asset tag or serial number already exists')
     }
     
-    throw new Error('Failed to update asset')
+    if (error instanceof DatabaseError) {
+      throw new Error(formatConstraintError(error))
+    }
+    
+    if (error instanceof Error) {
+      console.error('Error message:', error.message)
+      if (error.name === 'ZodError') {
+        console.error('Validation errors:', JSON.stringify(error, null, 2))
+      }
+    }
+    
+    throw new Error(`Failed to update asset: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
+  
+  // Redirect to asset detail page after successful update
+  redirect(`/dashboard/assets/${id}`)
 }
 
 export async function deleteAsset(id: number) {
   try {
+    // Check permissions - only admin and above can delete assets
+    await requireRole('admin')
+    
     // Use enhanced database utilities with soft delete
     await dbUtils.update(
       () => db.update(assets).set({ isDeleted: true, updatedAt: new Date() }).where(eq(assets.id, id)).returning(),

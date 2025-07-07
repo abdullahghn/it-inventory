@@ -3,12 +3,22 @@ import { db } from '@/lib/db'
 import { assets, user } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { assignAsset } from '@/actions/assignments'
+import { requireRole } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 
 export default async function NewAssignmentPage({ 
   searchParams 
 }: { 
   searchParams: Promise<{ assetId?: string; userId?: string; notes?: string }> 
 }) {
+  try {
+    // Check permissions - only manager and above can assign assets
+    await requireRole('manager')
+  } catch (error) {
+    // Redirect to dashboard with error message
+    redirect('/dashboard?error=unauthorized')
+  }
+  
   // Await searchParams before using (Next.js 15 requirement)
   const params = await searchParams
   

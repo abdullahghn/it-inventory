@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { createUser } from '@/actions/users'
+import { AdminRoute } from '@/components/auth/ProtectedRoute'
 
-export default function NewUserPage() {
+function NewUserPageContent() {
   return (
     <div>
       <div className="mb-6">
@@ -149,5 +150,13 @@ export default function NewUserPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function NewUserPage() {
+  return (
+    <AdminRoute>
+      <NewUserPageContent />
+    </AdminRoute>
   )
 } 

@@ -22,8 +22,8 @@ export const client = postgres(connectionString, {
       console.log('PostgreSQL notice:', notice)
     }
   },
-  debug: process.env.NODE_ENV === 'development' ? (connection, query, params) => {
-    // Log queries in development
+  debug: process.env.DB_DEBUG === 'true' ? (connection, query, params) => {
+    // Log queries only when explicitly enabled (can slow down development)
     console.log('Query:', query)
     if (params?.length) {
       console.log('Params:', params)
@@ -31,10 +31,10 @@ export const client = postgres(connectionString, {
   } : undefined,
 })
 
-// Enhanced Drizzle instance with logger
+// Enhanced Drizzle instance with optional logger
 export const db = drizzle(client, { 
   schema,
-  logger: process.env.NODE_ENV === 'development' ? {
+  logger: process.env.DB_DEBUG === 'true' ? {
     logQuery: (query, params) => {
       console.log('Drizzle Query:', query)
       if (params?.length) {

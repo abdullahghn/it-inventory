@@ -9,7 +9,7 @@ import {
   type AssetFilters 
 } from '@/lib/validations'
 import { dbUtils, handleDatabaseError } from '@/lib/db/utils'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, requireRole } from '@/lib/auth'
 import { eq, and, or, like, gte, lte, inArray, sql, count } from 'drizzle-orm'
 
 // ============================================================================
@@ -239,6 +239,9 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const session = await requireAuth()
     
+    // Check permissions - only admin and above can create assets
+    await requireRole('admin')
+    
     // Parse and validate request body
     const body = await request.json()
     const assetData = createAssetSchema.parse(body)
@@ -279,6 +282,13 @@ export async function POST(request: NextRequest) {
         success: false,
         error: 'Authentication required',
       }, { status: 401 })
+    }
+    
+    if (error.message.includes('required')) {
+      return NextResponse.json({
+        success: false,
+        error: 'Insufficient permissions',
+      }, { status: 403 })
     }
     
     if (error.message.includes('already exists')) {

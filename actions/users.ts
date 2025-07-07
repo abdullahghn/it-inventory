@@ -5,9 +5,13 @@ import { user } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
+import { requireRole, getCurrentUser } from '@/lib/auth'
 
 export async function createUser(formData: FormData) {
   try {
+    // Check permissions - only admin and above can create users
+    await requireRole('admin')
+    
     const data = {
       id: crypto.randomUUID(), // Generate UUID for user ID
       name: formData.get('name') as string,
@@ -33,6 +37,18 @@ export async function createUser(formData: FormData) {
 
 export async function updateUser(id: string, formData: FormData) {
   try {
+    // Check permissions - users can edit their own profile, managers+ can edit others
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      throw new Error('Authentication required')
+    }
+    
+    const isOwnProfile = currentUser.id === id
+    if (!isOwnProfile) {
+      // Editing someone else's profile requires manager+ permissions
+      await requireRole('manager')
+    }
+    
     const data = {
       name: formData.get('name') as string,
       email: formData.get('email') as string,
@@ -57,6 +73,9 @@ export async function updateUser(id: string, formData: FormData) {
 
 export async function deactivateUser(id: string) {
   try {
+    // Check permissions - only admin and above can deactivate users
+    await requireRole('admin')
+    
     // Since our user table doesn't have isActive, we'll just log this for now
     console.log('Deactivate user functionality not implemented yet for user:', id)
     

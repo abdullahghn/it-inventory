@@ -26,6 +26,12 @@
         .role-viewer { background: #6c757d; color: white; }
         .current-user { background: #e7f3ff; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
         .test-results { background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 10px 0; }
+        .test-result { margin-bottom: 15px; padding: 10px; border-radius: 5px; background-color: #ffffff; border: 1px solid #e9ecef; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        details { margin-top: 10px; }
+        summary { cursor: pointer; font-weight: bold; color: #6c757d; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -101,9 +107,13 @@
                 </div>
             </div>
 
-            <div class="flex">
-                <button class="button" onclick="runPermissionTests()">🧪 Run All Permission Tests</button>
-                <button class="button danger" onclick="clearResults()">Clear Results</button>
+            <div class="input-group">
+                <h4>Comprehensive Permission Testing</h4>
+                <div class="flex">
+                    <input type="text" id="testUserId" placeholder="User ID to test permissions with">
+                    <button class="button" onclick="runPermissionTests()">🧪 Run All Permission Tests</button>
+                    <button class="button danger" onclick="clearResults()">Clear Results</button>
+                </div>
             </div>
 
             <div id="permissionResults" class="result" style="display: none;"></div>
@@ -221,20 +231,46 @@
         // User Management Functions
         async function checkCurrentUser() {
             const result = await apiCall('/api/auth/session');
-            if (result.ok && result.data.user) {
-                currentUser = result.data.user;
+            
+            // Debug logging to see the actual response structure
+            console.log('Session API result:', result);
+            
+            // Handle different possible response structures
+            let user = null;
+            if (result.ok && result.data) {
+                // Try different possible structures
+                user = result.data.user || result.data;
+                
+                // Additional check: if user exists but no role, it might be incomplete
+                if (user && !user.role && user.email) {
+                    // User exists but missing role info - might need to fetch from users API
+                    console.log('User found but missing role, fetching full profile...');
+                    try {
+                        const userResult = await apiCall(`/api/users/${user.id}`);
+                        if (userResult.ok && userResult.data && userResult.data.data) {
+                            user = userResult.data.data;
+                        }
+                    } catch (e) {
+                        console.log('Could not fetch user profile:', e);
+                    }
+                }
+            }
+            
+            if (user && user.email) {
+                currentUser = user;
                 document.getElementById('currentUserInfo').innerHTML = `
                     <h3>Current User Status</h3>
-                    <p><strong>Name:</strong> ${currentUser.name}</p>
+                    <p><strong>Name:</strong> ${currentUser.name || 'N/A'}</p>
                     <p><strong>Email:</strong> ${currentUser.email}</p>
-                    <p><strong>Role:</strong> ${getRoleBadge(currentUser.role)}</p>
-                    <p><strong>ID:</strong> ${currentUser.id}</p>
+                    <p><strong>Role:</strong> ${currentUser.role ? getRoleBadge(currentUser.role) : 'N/A'}</p>
+                    <p><strong>ID:</strong> ${currentUser.id || 'N/A'}</p>
                     <button class="button" onclick="checkCurrentUser()">Refresh User Info</button>
                 `;
             } else {
                 document.getElementById('currentUserInfo').innerHTML = `
                     <h3>❌ Not Logged In</h3>
                     <p>Please <a href="/auth/signin">sign in</a> first.</p>
+                    <p><small>Debug: ${JSON.stringify(result, null, 2)}</small></p>
                 `;
             }
         }
@@ -347,26 +383,64 @@
                 return;
             }
 
+            const testUserId = document.getElementById('testUserId').value;
+            if (!testUserId) {
+                alert('Please enter a User ID to test permissions with');
+                return;
+            }
+
             const tests = [
                 { name: 'List Users', endpoint: '/api/users' },
                 { name: 'Get Own Profile', endpoint: `/api/users/${currentUser.id}` },
+                { name: 'Get Target User Profile', endpoint: `/api/users/${testUserId}` },
                 { name: 'Get Own Assets', endpoint: `/api/users/${currentUser.id}/assets` },
+                { name: 'Get Target User Assets', endpoint: `/api/users/${testUserId}/assets` },
                 { name: 'List Assets', endpoint: '/api/assets' },
-                { name: 'Create User (Admin Test)', endpoint: '/api/users', method: 'POST', body: { name: 'Test User', email: 'test@example.com', role: 'user' } },
+                { name: 'Update Target User Role', endpoint: `/api/users/${testUserId}`, method: 'PUT', body: { role: 'user' } },
+                { name: 'Create Test User', endpoint: '/api/users', method: 'POST', body: { name: 'Permission Test User', email: `test-${Date.now()}@example.com`, role: 'user', department: 'IT' } },
             ];
 
-            showResult('permissionResults', 'Running permission tests...\n\n');
+            let resultsHtml = '<h4>🔍 Permission Test Results</h4>\n';
+            document.getElementById('permissionResults').innerHTML = resultsHtml + '<p>Running permission tests...</p>';
+            document.getElementById('permissionResults').style.display = 'block';
 
             for (const test of tests) {
-                const options = {};
-                if (test.method) options.method = test.method;
-                if (test.body) options.body = JSON.stringify(test.body);
+                resultsHtml += `<div class="test-result">\n`;
+                resultsHtml += `<h5>🧪 ${test.name}</h5>\n`;
+                resultsHtml += `<p><strong>Endpoint:</strong> ${test.method || 'GET'} ${test.endpoint}</p>\n`;
+                
+                try {
+                    const options = {};
+                    if (test.method) options.method = test.method;
+                    if (test.body) options.body = JSON.stringify(test.body);
 
-                const result = await apiCall(test.endpoint, options);
+                    const result = await apiCall(test.endpoint, options);
+                    
+                    if (result.ok) {
+                        resultsHtml += `<p class="success">✅ <strong>SUCCESS</strong> (${result.status})</p>\n`;
+                        if (result.data) {
+                            resultsHtml += `<details><summary>Response Data</summary><pre>${JSON.stringify(result.data, null, 2)}</pre></details>\n`;
+                        }
+                    } else {
+                        resultsHtml += `<p class="error">❌ <strong>FAILED</strong> (${result.status})</p>\n`;
+                        resultsHtml += `<p class="error">Error: ${result.error || 'Unknown error'}</p>\n`;
+                    }
+                } catch (error) {
+                    resultsHtml += `<p class="error">❌ <strong>ERROR</strong></p>\n`;
+                    resultsHtml += `<p class="error">Exception: ${error.message}</p>\n`;
+                }
+                
+                resultsHtml += `</div><hr>\n`;
+                
+                // Update display after each test
+                document.getElementById('permissionResults').innerHTML = resultsHtml;
                 
                 // Small delay for readability
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 800));
             }
+            
+            resultsHtml += '<p><strong>✅ All permission tests completed!</strong></p>';
+            document.getElementById('permissionResults').innerHTML = resultsHtml;
         }
 
         // Initialize on page load
