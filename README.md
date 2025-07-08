@@ -50,9 +50,11 @@ A comprehensive IT asset management web application built with Next.js 15, TypeS
 ```
 it-inventory/
 ├── app/                      # Next.js App Router
-│   ├── (dashboard)/         # Dashboard routes group
+│   ├── dashboard/           # Dashboard pages
 │   │   ├── assets/          # Asset management pages
 │   │   ├── users/           # User management pages
+│   │   ├── assignments/     # Assignment management pages
+│   │   ├── maintenance/     # Maintenance tracking pages
 │   │   └── reports/         # Reporting pages
 │   ├── api/                 # API routes
 │   └── auth/                # Authentication pages

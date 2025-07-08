@@ -59,6 +59,7 @@ export function UserMenu({ user }: UserMenuProps) {
           )}
         </div>
       </div>
+      {/* Show profile link for all users */}
       <Link
         href={`/dashboard/users/${user.id}`}
         className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600"

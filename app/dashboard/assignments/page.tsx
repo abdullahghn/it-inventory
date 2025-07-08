@@ -1,30 +1,64 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { assetAssignments, assets, user } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { returnAsset } from '@/actions/assignments'
-import { hasRole } from '@/lib/auth'
+import { hasRole, auth, getCurrentUser } from '@/lib/auth'
 
 export default async function AssignmentsPage() {
-  // Check permissions
+  // Check permissions and get current user
+  const session = await auth()
+  const currentUser = await getCurrentUser()
   const canManageAssignments = await hasRole('manager')
   
+  if (!session?.user) {
+    return <div>Access denied</div>
+  }
+
   // Fetch assignments with asset and user details
-  const assignmentList = await db
-    .select({
-      id: assetAssignments.id,
-      assignedAt: assetAssignments.assignedAt,
-      returnedAt: assetAssignments.returnedAt,
-      notes: assetAssignments.notes,
-      assetName: assets.name,
-      assetType: assets.category,
-      assetSerialNumber: assets.serialNumber,
-      userName: user.name,
-      userEmail: user.email,
-    })
-    .from(assetAssignments)
-    .leftJoin(assets, eq(assetAssignments.assetId, assets.id))
-    .leftJoin(user, eq(assetAssignments.userId, user.id))
+  let assignmentList: any[] = []
+  
+  if (canManageAssignments) {
+    // Managers can see all assignments
+    assignmentList = await db
+      .select({
+        id: assetAssignments.id,
+        assignedAt: assetAssignments.assignedAt,
+        returnedAt: assetAssignments.returnedAt,
+        notes: assetAssignments.notes,
+        assetName: assets.name,
+        assetType: assets.category,
+        assetSerialNumber: assets.serialNumber,
+        userName: user.name,
+        userEmail: user.email,
+      })
+      .from(assetAssignments)
+      .leftJoin(assets, eq(assetAssignments.assetId, assets.id))
+      .leftJoin(user, eq(assetAssignments.userId, user.id))
+  } else {
+    // Users can only see their own assignments
+    assignmentList = await db
+      .select({
+        id: assetAssignments.id,
+        assignedAt: assetAssignments.assignedAt,
+        returnedAt: assetAssignments.returnedAt,
+        notes: assetAssignments.notes,
+        assetName: assets.name,
+        assetType: assets.category,
+        assetSerialNumber: assets.serialNumber,
+        userName: user.name,
+        userEmail: user.email,
+      })
+      .from(assetAssignments)
+      .leftJoin(assets, eq(assetAssignments.assetId, assets.id))
+      .leftJoin(user, eq(assetAssignments.userId, user.id))
+      .where(
+        and(
+          eq(assetAssignments.userId, currentUser?.id || session.user.id),
+          eq(assetAssignments.isActive, true)
+        )
+      )
+  }
 
   return (
     <div>

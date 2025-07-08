@@ -1,137 +1,319 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { db } from '@/lib/db'
-import { user } from '@/lib/db/schema'
-import { ManagerRoute } from '@/components/auth/ProtectedRoute'
+import { DataTable } from '@/components/ui/data-table'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { RoleBadge, RequireRole, type UserRole } from '@/components/auth/RoleGuard'
+import { PageLoading, EmptyState } from '@/components/ui/loading'
+import { useToast } from '@/components/ui/toast'
+import { DeleteConfirmationModal } from '@/components/ui/modal'
+import { MoreHorizontal, Plus, Eye, Edit, UserCheck, UserX, Download } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
 
-async function UsersPageContent() {
-  // Fetch users from database
-  const userList = await db.select().from(user)
-
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Users</h1>
-          <p className="text-gray-600">Manage system users</p>
-        </div>
-        <Link 
-          href="/dashboard/users/new"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        >
-          Add User
-        </Link>
-      </div>
-
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">User List</h2>
-          {userList.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No users found</p>
-              <p className="text-sm text-gray-400 mt-2">
-                Start by adding your first user
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full table-auto">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Department
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {userList.map((user) => (
-                    <tr key={user.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {user.image && (
-                            <img 
-                              className="h-10 w-10 rounded-full mr-4" 
-                              src={user.image} 
-                              alt={user.name || 'User'} 
-                            />
-                          )}
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {user.name || 'No name'}
-                            </div>
-                            {user.employeeId && (
-                              <div className="text-sm text-gray-500">
-                                ID: {user.employeeId}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.role === 'super_admin' ? 'bg-red-100 text-red-800' :
-                          user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                          user.role === 'manager' ? 'bg-blue-100 text-blue-800' :
-                          user.role === 'user' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {user.role.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.department || 'Not assigned'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {user.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <Link 
-                          href={`/dashboard/users/${user.id}`}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          View
-                        </Link>
-                        <button className="text-red-600 hover:text-red-900">
-                          {user.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+interface User {
+  id: string
+  name: string
+  email: string
+  role: string
+  department: string
+  employeeId: string
+  isActive: boolean
+  image: string
+  createdAt: string
+  updatedAt: string
 }
 
 export default function UsersPage() {
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const { success, error: showError } = useToast()
+
+  // Fetch users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/users', {
+          credentials: 'include', // Ensure cookies are sent
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch users: ${response.status}`)
+        }
+        
+        const result = await response.json()
+        
+        if (result.success && result.data) {
+          setUsers(result.data)
+        } else {
+          throw new Error(result.error || 'Failed to fetch users')
+        }
+      } catch (error) {
+        console.error('Fetch error:', error)
+        showError('Failed to fetch users', 'Please try again later')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [showError])
+
+  const handleToggleStatus = async (user: User) => {
+    try {
+      const response = await fetch(`/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !user.isActive })
+      })
+      
+      if (!response.ok) throw new Error('Failed to update user status')
+      
+      setUsers(prev => prev.map(u => 
+        u.id === user.id ? { ...u, isActive: !u.isActive } : u
+      ))
+      
+      success(
+        `User ${!user.isActive ? 'activated' : 'deactivated'}`,
+        `${user.name} has been successfully ${!user.isActive ? 'activated' : 'deactivated'}`
+      )
+    } catch (error) {
+      showError('Failed to update user status', 'Please try again later')
+    }
+  }
+
+  const handleDelete = async (user: User) => {
+    try {
+      const response = await fetch(`/api/users/${user.id}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) throw new Error('Failed to delete user')
+      
+      setUsers(prev => prev.filter(u => u.id !== user.id))
+      success('User deleted', `${user.name} has been successfully deleted`)
+      setDeleteModalOpen(false)
+      setUserToDelete(null)
+    } catch (error) {
+      showError('Failed to delete user', 'Please try again later')
+    }
+  }
+
+  const handleExport = () => {
+    const csvContent = [
+      'Name,Email,Role,Department,Employee ID,Status',
+      ...users.map(user => 
+        `${user.name},${user.email},${user.role},${user.department || 'N/A'},${user.employeeId || 'N/A'},${user.isActive ? 'Active' : 'Inactive'}`
+      )
+    ].join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'users.csv'
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+
+  const columns: ColumnDef<User>[] = [
+    {
+      accessorKey: 'name',
+      header: 'User',
+      cell: ({ row }) => {
+        const user = row.original
+        return (
+          <div className="flex items-center space-x-3">
+            {user.image && (
+              <img 
+                className="h-10 w-10 rounded-full" 
+                src={user.image} 
+                alt={user.name || 'User'} 
+              />
+            )}
+            <div>
+              <div className="font-medium text-gray-900">
+                {user.name || 'No name'}
+              </div>
+              {user.employeeId && (
+                <div className="text-sm text-gray-500">
+                  ID: {user.employeeId}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'email',
+      header: 'Email',
+      cell: ({ row }) => (
+        <div className="text-sm text-gray-900">{row.getValue('email')}</div>
+      ),
+    },
+    {
+      accessorKey: 'role',
+      header: 'Role',
+      cell: ({ row }) => {
+        const role = row.getValue('role') as UserRole
+        return <RoleBadge role={role} />
+      },
+    },
+    {
+      accessorKey: 'department',
+      header: 'Department',
+      cell: ({ row }) => (
+        <div className="text-sm text-gray-900">
+          {row.getValue('department') || 'Not assigned'}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      cell: ({ row }) => {
+        const isActive = row.getValue('isActive') as boolean
+        return (
+          <Badge variant={isActive ? 'success' : 'destructive'}>
+            {isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        )
+      },
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => {
+        const user = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/dashboard/users/${user.id}`} className="flex items-center">
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Profile
+                </Link>
+              </DropdownMenuItem>
+              
+              <RequireRole role="admin">
+                <DropdownMenuItem asChild>
+                  <Link href={`/dashboard/users/${user.id}/edit`} className="flex items-center">
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit User
+                  </Link>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem 
+                  onClick={() => handleToggleStatus(user)}
+                  className="flex items-center"
+                >
+                  {user.isActive ? (
+                    <>
+                      <UserX className="mr-2 h-4 w-4" />
+                      Deactivate
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      Activate
+                    </>
+                  )}
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="text-red-600 focus:text-red-600"
+                  onClick={() => {
+                    setUserToDelete(user)
+                    setDeleteModalOpen(true)
+                  }}
+                >
+                  <UserX className="mr-2 h-4 w-4" />
+                  Delete User
+                </DropdownMenuItem>
+              </RequireRole>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
+
+  if (loading) {
+    return <PageLoading />
+  }
+
   return (
-    <ManagerRoute>
-      <UsersPageContent />
-    </ManagerRoute>
+    <RequireRole role="manager">
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Users</h1>
+            <p className="text-gray-600">Manage system users and permissions</p>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            
+            <RequireRole role="admin">
+              <Link href="/dashboard/users/new">
+                <Button className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add User
+                </Button>
+              </Link>
+            </RequireRole>
+          </div>
+        </div>
+
+        {users.length === 0 ? (
+          <EmptyState
+            title="No users found"
+            description="Start by adding your first user to the system"
+            action={
+              <RequireRole role="admin">
+                <Link href="/dashboard/users/new">
+                  <Button>Add First User</Button>
+                </Link>
+              </RequireRole>
+            }
+          />
+        ) : (
+          <DataTable
+            columns={columns}
+            data={users}
+            searchKey="name"
+            searchPlaceholder="Search users..."
+          />
+        )}
+
+        <DeleteConfirmationModal
+          isOpen={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          onConfirm={() => userToDelete && handleDelete(userToDelete)}
+          itemName={userToDelete?.name || ''}
+          itemType="user"
+        />
+      </div>
+    </RequireRole>
   )
 } 

@@ -65,7 +65,7 @@ export function ProtectedRoute({
       }
 
       // Check role-based permissions
-      const userRole = session.user.role
+      const userRole = session.user.role as UserRole
 
       if (requiredRole && !hasPermission(userRole, requiredRole)) {
         router.push('/dashboard?error=unauthorized')
@@ -95,7 +95,7 @@ export function ProtectedRoute({
       return null // Will redirect via useEffect
     }
 
-    const userRole = session.user.role
+    const userRole = session.user.role as UserRole
 
     if (requiredRole && !hasPermission(userRole, requiredRole)) {
       return null // Will redirect via useEffect

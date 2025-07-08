@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { SessionProvider } from '@/components/auth/SessionProvider'
+import { ToastProvider } from '@/components/ui/toast'
 
 export const metadata: Metadata = {
   title: 'IT Inventory System',
@@ -15,11 +16,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body 
-        className="min-h-screen bg-background font-sans antialiased"
+        className="min-h-screen bg-gray-100 font-sans antialiased"
         suppressHydrationWarning={true}
       >
         <SessionProvider>
-          {children}
+          <ToastProvider>
+            {children}
+          </ToastProvider>
         </SessionProvider>
       </body>
     </html>

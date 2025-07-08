@@ -16,8 +16,8 @@ console.log('GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 
 const isEdgeRuntime = typeof process === 'undefined' || !process.version || typeof process.on !== 'function'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // Only use database adapter in Node.js runtime, not in Edge Runtime
-  adapter: isEdgeRuntime ? undefined : DrizzleAdapter(db),
+  // Temporarily disable database adapter to fix NaN user ID issues
+  // adapter: isEdgeRuntime ? undefined : DrizzleAdapter(db),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -37,29 +37,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user, account }) {
-      // Initial sign in - fetch user details from database (only in Node.js runtime)
-      if (account && user && !isEdgeRuntime) {
+      // Initial sign in - fetch user data from database
+      if (account && user) {
         try {
-          const dbUser = await db
-            .select({
-              id: userTable.id,
-              role: userTable.role,
-              department: userTable.department,
-              employeeId: userTable.employeeId,
-              isActive: userTable.isActive,
-            })
-            .from(userTable)
-            .where(eq(userTable.id, user.id))
-            .limit(1)
-          
-          if (dbUser[0]) {
-            token.id = dbUser[0].id
-            token.role = dbUser[0].role
-            token.department = dbUser[0].department
-            token.employeeId = dbUser[0].employeeId
-            token.isActive = dbUser[0].isActive
+          // Don't access database in Edge Runtime
+          if (!isEdgeRuntime) {
+            const dbUser = await db
+              .select({
+                id: userTable.id,
+                role: userTable.role,
+                department: userTable.department,
+                employeeId: userTable.employeeId,
+                isActive: userTable.isActive,
+              })
+              .from(userTable)
+              .where(eq(userTable.email, user.email || ''))
+              .limit(1)
+            
+            if (dbUser[0]) {
+              // Use existing user data
+              token.id = dbUser[0].id
+              token.role = dbUser[0].role
+              token.department = dbUser[0].department
+              token.employeeId = dbUser[0].employeeId
+              token.isActive = dbUser[0].isActive
+            } else {
+              // New user - set defaults
+              token.id = user.id
+              token.role = 'user'
+              token.department = null
+              token.employeeId = null
+              token.isActive = true
+            }
           } else {
-            // Set defaults for new users
+            // Edge Runtime fallback
             token.id = user.id
             token.role = 'user'
             token.department = null
@@ -67,21 +78,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.isActive = true
           }
         } catch (error) {
-          console.error('Error fetching user details during JWT creation:', error)
-          // Set defaults on error
+          console.error('Error fetching user data in JWT callback:', error)
+          // Fallback to defaults
           token.id = user.id
           token.role = 'user'
           token.department = null
           token.employeeId = null
           token.isActive = true
         }
-      } else if (account && user && isEdgeRuntime) {
-        // In Edge Runtime, just use basic user info from OAuth
-        token.id = user.id
-        token.role = 'user'
-        token.department = null
-        token.employeeId = null
-        token.isActive = true
       }
       return token
     },
@@ -156,11 +160,37 @@ export async function getCurrentSession() {
  * Get the current user with full details
  */
 export async function getCurrentUser() {
-  // Don't access database in Edge Runtime
-  if (isEdgeRuntime) return null
-  
   const session = await getCurrentSession()
   if (!session?.user?.id) return null
+  
+  // Don't query database for temporary user IDs
+  if (session.user.id.startsWith('temp_') || (session.user as any).isTemporary) {
+    console.log('Skipping database query for temporary user ID:', session.user.id)
+    return null
+  }
+  
+  // If we have role information in session, use it (for Edge Runtime compatibility)
+  if (session.user.role) {
+    return {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+      role: session.user.role,
+      department: session.user.department,
+      employeeId: session.user.employeeId,
+      isActive: session.user.isActive,
+      image: session.user.image,
+      createdAt: null,
+      updatedAt: null,
+      emailVerified: null,
+      jobTitle: null,
+      phone: null,
+      lastLoginAt: null,
+    }
+  }
+  
+  // Don't access database in Edge Runtime
+  if (isEdgeRuntime) return null
   
   try {
     const dbUser = await db
@@ -180,9 +210,6 @@ export async function getCurrentUser() {
  * Check if user has specific role (with hierarchy)
  */
 export async function hasRole(requiredRole: string): Promise<boolean> {
-  // Don't access database in Edge Runtime
-  if (isEdgeRuntime) return false
-  
   const currentUser = await getCurrentUser()
   if (!currentUser) return false
   
@@ -204,9 +231,6 @@ export async function hasRole(requiredRole: string): Promise<boolean> {
  * Check if user has any of the specified roles
  */
 export async function hasAnyRole(roles: string[]): Promise<boolean> {
-  // Don't access database in Edge Runtime
-  if (isEdgeRuntime) return false
-  
   const currentUser = await getCurrentUser()
   if (!currentUser) return false
   
@@ -217,9 +241,6 @@ export async function hasAnyRole(roles: string[]): Promise<boolean> {
  * Check if user is in specific department
  */
 export async function isInDepartment(department: string): Promise<boolean> {
-  // Don't access database in Edge Runtime
-  if (isEdgeRuntime) return false
-  
   const currentUser = await getCurrentUser()
   if (!currentUser) return false
   
@@ -230,9 +251,6 @@ export async function isInDepartment(department: string): Promise<boolean> {
  * Check if user is active
  */
 export async function isActiveUser(): Promise<boolean> {
-  // Don't access database in Edge Runtime
-  if (isEdgeRuntime) return true
-  
   const currentUser = await getCurrentUser()
   if (!currentUser) return false
   
@@ -254,15 +272,6 @@ export async function requireAuth() {
  * Require specific role - throws if insufficient permissions
  */
 export async function requireRole(requiredRole: string) {
-  // In Edge Runtime, basic auth check only
-  if (isEdgeRuntime) {
-    const session = await getCurrentSession()
-    if (!session?.user) {
-      throw new Error('Authentication required')
-    }
-    return session
-  }
-  
   const session = await requireAuth()
   const hasPermission = await hasRole(requiredRole)
   

@@ -135,9 +135,10 @@ export default async function NewAssetPage() {
               </label>
               <select 
                 name="condition"
-                defaultValue="good"
+                defaultValue="new"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
+                <option value="new">New</option>
                 <option value="excellent">Excellent</option>
                 <option value="good">Good</option>
                 <option value="fair">Fair</option>
