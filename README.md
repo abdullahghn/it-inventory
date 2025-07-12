@@ -1,331 +1,218 @@
-# IT Inventory Management System
+# IT Asset Inventory Management System
 
-A comprehensive IT asset management system built with Next.js 15, React, TypeScript, PostgreSQL, Drizzle ORM, and NextAuth.js.
+A comprehensive web application for managing IT assets with role-based access, automated workflows, and real-time analytics.
 
 ## 🚀 Features
 
-### Core Functionality
-- **Asset Management**: Complete lifecycle management of IT assets
-- **User Management**: Role-based user administration
-- **Assignment Tracking**: Asset assignment and return workflows
-- **Maintenance Records**: Preventive and corrective maintenance tracking
-- **Reporting & Analytics**: Comprehensive reporting dashboard
-- **Bulk Import/Export**: CSV/Excel data import and export capabilities
-- **Audit Trail**: Complete audit logging for compliance
+### Core Asset Management
+- **Asset Lifecycle Management**: Complete CRUD operations for IT assets
+- **Auto-generated Asset Tags**: Unique identifiers (format: IT-CAT-0001)
+- **Status Workflow**: In Stock → Deployed → In Repair → Retired
+- **Asset Assignment System**: Track assignments with history and audit trails
+- **Bulk Operations**: Import/export up to 100 assets with progress tracking
 
-### Role-Based Access Control
-- **Super Admin**: Full system access and configuration
-- **Admin**: Asset and user management, assignment oversight
-- **Manager**: Department asset oversight, assignment approvals
-- **User**: View assigned assets, submit maintenance requests
-- **Viewer**: Read-only access to system data
+### User Management & Authentication
+- **Role-based Access Control**: Super Admin, Admin, Manager, User, Viewer roles
+- **Google OAuth Integration**: Secure authentication with Google accounts
+- **Department-based Permissions**: Users can only access their department's data
+- **Profile Management**: Users can view and edit their profiles
+
+### Advanced Reporting & Analytics
+- **Real-time Dashboard**: Live metrics and KPIs with role-based views
+- **Interactive Charts**: Asset distribution, utilization rates, and trends using Recharts
+- **Warranty Alerts**: Proactive notifications for expiring warranties (30/60/90 days)
+- **Export Functionality**: Generate CSV reports for assets, assignments, warranty, utilization, and department data
+- **Department Analytics**: Asset utilization by department with permission controls
+
+### Assignment Management
+- **Smart Assignment System**: Pre-select assets from asset lists or detail pages
+- **Assignment History**: Complete audit trail of all asset movements
+- **Return Processing**: Track asset returns with condition assessment
+- **Expected Return Dates**: Set and monitor return deadlines
+
+## 📊 Dashboard & Analytics
+
+### Overview Tab
+- **Key Metrics Cards**: Total assets, utilization rate, available assets, warranty alerts
+- **Recent Activity**: Latest assignments and returns with timestamps
+- **Department Overview**: Asset distribution across departments (manager+ only)
+- **Quick Stats**: Real-time counters for various asset categories
+
+### Analytics Tab
+- **Asset Status Distribution**: Pie chart showing available, assigned, maintenance, retired
+- **Category Breakdown**: Asset distribution by category (laptops, desktops, etc.)
+- **Condition Overview**: Bar chart of asset conditions (excellent, good, fair, poor)
+- **Department Utilization**: Utilization rates by department with interactive tooltips
+
+### Warranty Alerts Tab
+- **Critical Alerts**: Assets with warranty expiring in 30 days
+- **Warning Alerts**: Assets with warranty expiring in 31-60 days
+- **Info Alerts**: Assets with warranty expiring in 61-90 days
+- **Actionable Items**: Direct links to asset details and export options
+
+### Reports Tab
+- **Report Types**: Assets, Assignments, Warranty, Utilization, Department reports
+- **Export Formats**: CSV download with proper formatting and escaping
+- **Filtering Options**: Date range, department, category, status, condition filters
+- **Real-time Generation**: Server-side report generation with progress indicators
 
 ## 🛠 Technology Stack
 
-- **Frontend**: Next.js 15, React 18, TypeScript
-- **Styling**: Tailwind CSS, shadcn/ui components
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: NextAuth.js with Google OAuth
-- **Validation**: Zod schema validation
-- **Forms**: React Hook Form with Zod resolver
-- **State Management**: React hooks and server actions
-- **Testing**: Vitest, Playwright
-- **Deployment**: Vercel-ready configuration
+### Frontend
+- **Next.js 15**: App Router with React 18 and TypeScript
+- **Tailwind CSS**: Utility-first styling with custom design system
+- **Shadcn/ui**: High-quality React components built on Radix UI
+- **Recharts**: Interactive charts and data visualizations
+- **React Hook Form**: Form handling with Zod validation
 
-## 📋 Form Pages & Data Entry
+### Backend
+- **Next.js API Routes**: RESTful API endpoints
+- **Server Actions**: Form processing and data mutations
+- **Drizzle ORM**: Type-safe database queries with PostgreSQL
+- **NextAuth.js v5**: Authentication with Google OAuth
+- **Zod**: Runtime type validation for API requests
 
-### Asset Management Forms
+### Database & Infrastructure
+- **PostgreSQL**: Primary database with Drizzle ORM
+- **Drizzle Kit**: Database migrations and schema management
+- **Role-based Security**: Row-level security and permission checks
 
-#### Create New Asset (`/dashboard/assets/new`)
-- **Purpose**: Add new assets to the inventory system
-- **Features**:
-  - Auto-generated asset tags (format: CAT-YYYYMMDD-XXXX)
-  - Comprehensive asset details (technical specs, financial info, location)
-  - Real-time validation with Zod schemas
-  - Conditional field validation (warranty expiry requires purchase date)
-  - Role-based access control (admin, manager, super_admin)
+## 📈 API Endpoints
 
-#### Edit Asset (`/dashboard/assets/[id]/edit`)
-- **Purpose**: Update existing asset information
-- **Features**:
-  - Pre-populated form with current asset data
-  - Validation of asset tag uniqueness
-  - Audit trail for all changes
-  - Permission checks for editing rights
+### Dashboard Analytics
+```
+GET /api/reports/dashboard
+```
+Returns comprehensive dashboard metrics including:
+- Asset counts and utilization rates
+- Status and category breakdowns
+- Warranty expiration alerts
+- Recent activity data
+- Department-specific metrics
 
-**Asset Form Fields**:
-- Basic Information: Asset tag, name, category, subcategory
-- Technical Specs: Serial number, model, manufacturer, status, condition
-- Financial Data: Purchase date/price, current value, warranty expiry
-- Location: Building, floor, room, desk, location notes
-- Metadata: Description, notes
+### Report Export
+```
+POST /api/reports/export
+```
+Generates downloadable reports with filtering:
+- Assets report: Complete inventory with details
+- Assignments report: Assignment history and status
+- Warranty report: Assets with expiring warranties
+- Utilization report: Asset utilization by category
+- Department report: Asset distribution by department
 
-### User Management Forms
-
-#### Create New User (`/dashboard/users/new`)
-- **Purpose**: Register new users with role assignments
-- **Features**:
-  - Email validation and uniqueness checking
-  - Role-based permission system
-  - Employee ID validation
-  - Phone number format validation
-  - Department and job title tracking
-
-#### Edit User Profile (`/dashboard/users/[id]/edit`)
-- **Purpose**: Update user information and roles
-- **Features**:
-  - Role permission validation
-  - Account status management
-  - Audit trail for role changes
-  - Prevention of self-deletion
-
-**User Form Fields**:
-- Personal Info: Name, email, phone, employee ID
-- Professional: Department, job title
-- System Access: Role, account status
-- Role Descriptions: Clear permission explanations
-
-### Assignment Management Forms
-
-#### Create Assignment (`/dashboard/assignments/new`)
-- **Purpose**: Assign assets to users with purpose and return dates
-- **Features**:
-  - Searchable asset and user selection
-  - Real-time availability checking
-  - Purpose and return date validation
-  - Current assignment warnings
-  - Automatic asset status updates
-
-**Assignment Form Features**:
-- Asset Search: Filter by tag, name, manufacturer, model
-- User Search: Filter by name, email, department
-- Assignment Details: Purpose, expected return date, notes
-- Validation: Prevents double assignments, validates dates
-
-### Bulk Import System
-
-#### Import Page (`/dashboard/import`)
-- **Purpose**: Bulk import data from CSV/Excel files
-- **Features**:
-  - Multiple entity types (assets, users, assignments)
-  - File validation and parsing
-  - Progress tracking and error reporting
-  - Template downloads
-  - Update existing vs. create new options
-
-**Import Capabilities**:
-- **Assets**: Complete asset information import
-- **Users**: User registration with roles
-- **Assignments**: Asset-user assignments with validation
-- **Error Handling**: Detailed error reporting with row numbers
-- **Validation**: Server-side validation with rollback on errors
-
-## 🔧 Setup Instructions
+## �� Setup Instructions
 
 ### Prerequisites
-- Node.js 18+ 
-- PostgreSQL 14+
-- Google OAuth credentials (for authentication)
+- Node.js 18+ and npm
+- PostgreSQL database
+- Google OAuth credentials
 
 ### Installation
+```bash
+# Clone the repository
+git clone <repository-url>
+cd it-inventory
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd it-inventory
-   ```
+# Install dependencies
+npm install
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your configuration
 
-3. **Environment Configuration**
-   Create `.env.local` file:
-   ```env
-   # Database
-   DATABASE_URL="postgresql://username:password@localhost:5432/it_inventory"
-   
-   # NextAuth
-   NEXTAUTH_SECRET="your-secret-key"
-   NEXTAUTH_URL="http://localhost:3000"
-   
-   # Google OAuth
-   GOOGLE_CLIENT_ID="your-google-client-id"
-   GOOGLE_CLIENT_SECRET="your-google-client-secret"
-   ```
+# Run database migrations
+npm run db:migrate
 
-4. **Database Setup**
-   ```bash
-   # Generate and run migrations
-   npm run db:generate
-   npm run db:migrate
-   
-   # Seed initial data (optional)
-   npm run db:seed
-   ```
-
-5. **Start Development Server**
-   ```bash
-   npm run dev
-   ```
-
-### Database Schema
-
-The system uses a comprehensive PostgreSQL schema with:
-- **Users**: Authentication and role management
-- **Assets**: Complete asset information and tracking
-- **Assignments**: Asset-user assignment history
-- **Maintenance**: Maintenance records and scheduling
-- **Audit Logs**: Complete audit trail for compliance
-- **Locations**: Physical location management
-
-### Validation System
-
-All forms use Zod schemas for validation:
-
-```typescript
-// Example: Asset validation schema
-export const assetFormSchema = createAssetSchema.extend({
-  assetTag: z.string()
-    .regex(/^[A-Z]{2,3}-\d{4,}$/, 'Invalid asset tag format'),
-  purchasePrice: z.string()
-    .regex(/^\d+(\.\d{1,2})?$/, 'Invalid price format'),
-  // ... more validation rules
-})
+# Start development server
+npm run dev
 ```
 
-### API Endpoints
+### Environment Variables
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/it_inventory"
 
-The system provides RESTful API endpoints for all operations:
-- `POST /api/assets` - Create asset
-- `PUT /api/assets/[id]` - Update asset
-- `DELETE /api/assets/[id]` - Delete asset
-- `POST /api/users` - Create user
-- `POST /api/assignments` - Create assignment
-- `POST /api/import` - Bulk import
+# Authentication
+NEXTAUTH_SECRET="your-secret-key"
+NEXTAUTH_URL="http://localhost:3000"
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+```
 
-## 🎨 UI/UX Features
+### Database Setup
+```bash
+# Generate migration
+npm run db:generate
 
-### Modern Design
-- Clean, professional interface using shadcn/ui components
-- Responsive design for all screen sizes
-- Dark/light mode support
-- Loading states and error handling
-- Toast notifications for user feedback
+# Apply migrations
+npm run db:migrate
 
-### Form Enhancements
-- Real-time validation with error messages
-- Auto-completion and suggestions
-- File upload with progress tracking
-- Searchable dropdowns and selectors
-- Conditional field display
+# Seed initial data (optional)
+npm run db:seed
+```
 
-### Data Visualization
-- Interactive charts and graphs
-- Filterable data tables
-- Export capabilities (CSV, Excel)
-- Dashboard widgets and metrics
+## 🎯 Usage Examples
+
+### Creating Asset Assignments
+1. Navigate to Assets → Select an asset → Click "Assign Asset"
+2. Asset is pre-selected in assignment form
+3. Choose user and set assignment details
+4. Submit to create assignment with audit trail
+
+### Generating Reports
+1. Go to Dashboard → Reports tab
+2. Select report type (Assets, Assignments, etc.)
+3. Configure filters (date range, department, etc.)
+4. Click "Generate Report" to download CSV
+
+### Monitoring Warranty Alerts
+1. Dashboard → Warranty Alerts tab
+2. View assets grouped by expiration urgency
+3. Click "View" to see asset details
+4. Export warranty report for action planning
 
 ## 🔒 Security Features
 
 ### Authentication & Authorization
-- Google OAuth integration
-- Role-based access control
-- Session management
-- CSRF protection
+- **Google OAuth**: Secure login with Google accounts
+- **Role-based Access**: Different permissions for different user types
+- **Session Management**: Secure session handling with NextAuth.js
+- **CSRF Protection**: Built-in protection against cross-site request forgery
 
-### Data Protection
-- Input validation and sanitization
-- SQL injection prevention
-- XSS protection
-- Audit trail for all changes
+### Data Security
+- **Row-level Security**: Users can only access their department's data
+- **Input Validation**: All inputs validated with Zod schemas
+- **SQL Injection Protection**: Parameterized queries with Drizzle ORM
+- **XSS Prevention**: React's built-in XSS protection
 
-### API Security
-- Rate limiting
-- Request validation
-- Error handling without data leakage
-- Secure file upload validation
+## 📝 Development Notes
 
-## 📊 Reporting & Analytics
+### Deviations from Original PRD
+- **Excel Export**: Currently supports CSV only; Excel export planned for future
+- **PDF Reports**: Not implemented in initial version
+- **Historical Trends**: Placeholder for future implementation
+- **Email Notifications**: Warranty alerts shown in UI only
 
-### Dashboard Metrics
-- Asset utilization rates
-- Assignment statistics
-- Maintenance schedules
-- User activity tracking
+### Performance Optimizations
+- **Server-side Rendering**: Dashboard data fetched server-side
+- **Caching**: API responses cached appropriately
+- **Lazy Loading**: Charts and heavy components loaded on demand
+- **Database Indexing**: Optimized queries with proper indexes
 
-### Export Capabilities
-- CSV/Excel export for all data
-- Custom report generation
-- Scheduled report delivery
-- Data visualization exports
-
-## 🧪 Testing
-
-### Test Coverage
-```bash
-# Run unit tests
-npm run test
-
-# Run integration tests
-npm run test:integration
-
-# Run E2E tests
-npm run test:e2e
-```
-
-### Testing Strategy
-- Unit tests for validation schemas
-- Integration tests for API endpoints
-- E2E tests for critical user flows
-- Performance testing for bulk operations
-
-## 🚀 Deployment
-
-### Production Build
-```bash
-npm run build
-npm start
-```
-
-### Environment Variables
-Ensure all production environment variables are set:
-- Database connection string
-- OAuth credentials
-- Secret keys
-- API endpoints
-
-### Database Migration
-```bash
-npm run db:migrate:prod
-```
-
-## 📝 API Documentation
-
-### Authentication
-All API endpoints require authentication via NextAuth.js session.
-
-### Rate Limiting
-- 100 requests per minute per user
-- Bulk operations: 10 requests per minute
-
-### Error Handling
-All endpoints return consistent error responses:
-```json
-{
-  "error": "Error message",
-  "code": "ERROR_CODE",
-  "details": {}
-}
-```
+### Future Enhancements
+- **Real-time Updates**: WebSocket integration for live data
+- **Advanced Analytics**: Machine learning insights and predictions
+- **Mobile App**: React Native companion app
+- **Integration APIs**: Third-party system integrations
+- **Audit Logging**: Comprehensive activity logging
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests for new functionality
+4. Add tests if applicable
 5. Submit a pull request
 
 ## 📄 License
@@ -336,9 +223,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For support and questions:
 - Create an issue in the repository
-- Check the documentation
-- Review the audit logs for troubleshooting
+- Check the documentation in `/docs`
+- Review the API documentation
 
 ---
 
-**Built with ❤️ using modern web technologies** 
+**Built with ❤️ using Next.js, TypeScript, and modern web technologies** 
