@@ -56,7 +56,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <p className="font-medium">{label}</p>
         {payload.map((entry: any, index: number) => (
           <p key={index} style={{ color: entry.color }}>
-            {entry.name}: {entry.value} ({entry.payload.percentage}%)
+            {entry.payload.status || entry.payload.category || entry.payload.condition}: {entry.value} ({entry.payload.percentage}%)
           </p>
         ))}
       </div>
@@ -106,7 +106,7 @@ export function DashboardCharts({
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percentage }) => `${name} (${percentage}%)`}
+                label={({ status, percentage }) => `${status} (${percentage}%)`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="count"
@@ -116,6 +116,15 @@ export function DashboardCharts({
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                verticalAlign="bottom" 
+                height={36}
+                formatter={(value, entry) => (
+                  <span style={{ color: entry.color, textTransform: 'capitalize' }}>
+                    {value}
+                  </span>
+                )}
+              />
             </PieChart>
           </ResponsiveContainer>
         </CardContent>
@@ -137,7 +146,7 @@ export function DashboardCharts({
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percentage }) => `${name} (${percentage}%)`}
+                label={({ category, percentage }) => `${category} (${percentage}%)`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="count"
@@ -147,6 +156,15 @@ export function DashboardCharts({
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                verticalAlign="bottom" 
+                height={36}
+                formatter={(value, entry) => (
+                  <span style={{ color: entry.color, textTransform: 'capitalize' }}>
+                    {value}
+                  </span>
+                )}
+              />
             </PieChart>
           </ResponsiveContainer>
         </CardContent>

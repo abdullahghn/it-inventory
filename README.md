@@ -1,231 +1,333 @@
-# IT Asset Inventory Management System
+# IT Inventory Management System
 
-A comprehensive web application for managing IT assets with role-based access, automated workflows, and real-time analytics.
+A comprehensive web application for IT asset lifecycle management with role-based access, automated workflows, and real-time analytics.
 
 ## 🚀 Features
 
-### Core Asset Management
-- **Asset Lifecycle Management**: Complete CRUD operations for IT assets
-- **Auto-generated Asset Tags**: Unique identifiers (format: IT-CAT-0001)
-- **Status Workflow**: In Stock → Deployed → In Repair → Retired
-- **Asset Assignment System**: Track assignments with history and audit trails
-- **Bulk Operations**: Import/export up to 100 assets with progress tracking
+### Core Features
+- **Asset Management**: Complete CRUD operations with auto-generated asset tags
+- **User Management**: Role-based access control with 5 distinct user roles
+- **Assignment Tracking**: Comprehensive asset assignment and return workflows
+- **Maintenance Records**: Scheduled and ad-hoc maintenance tracking
+- **Reporting & Analytics**: Real-time dashboards with export capabilities
+- **Audit Trail**: Complete tracking for compliance and security
 
-### User Management & Authentication
-- **Role-based Access Control**: Super Admin, Admin, Manager, User, Viewer roles
-- **Google OAuth Integration**: Secure authentication with Google accounts
-- **Department-based Permissions**: Users can only access their department's data
-- **Profile Management**: Users can view and edit their profiles
+### 🔍 Advanced Search & Filtering (NEW)
+- **Global Search**: Cross-entity search with auto-complete and real-time suggestions
+- **Advanced Filters**: Multi-criteria filtering for assets and users
+- **Saved Searches**: Save and reuse complex filter combinations
+- **Search Persistence**: Filters and search states persist across sessions
+- **Real-time Search**: Debounced search with instant results
+- **Search History**: Recent searches and popular terms
 
-### Advanced Reporting & Analytics
-- **Real-time Dashboard**: Live metrics and KPIs with role-based views
-- **Interactive Charts**: Asset distribution, utilization rates, and trends using Recharts
-- **Warranty Alerts**: Proactive notifications for expiring warranties (30/60/90 days)
-- **Export Functionality**: Generate CSV reports for assets, assignments, warranty, utilization, and department data
-- **Department Analytics**: Asset utilization by department with permission controls
-
-### Assignment Management
-- **Smart Assignment System**: Pre-select assets from asset lists or detail pages
-- **Assignment History**: Complete audit trail of all asset movements
-- **Return Processing**: Track asset returns with condition assessment
-- **Expected Return Dates**: Set and monitor return deadlines
-
-## 📊 Dashboard & Analytics
-
-### Overview Tab
-- **Key Metrics Cards**: Total assets, utilization rate, available assets, warranty alerts
-- **Recent Activity**: Latest assignments and returns with timestamps
-- **Department Overview**: Asset distribution across departments (manager+ only)
-- **Quick Stats**: Real-time counters for various asset categories
-
-### Analytics Tab
-- **Asset Status Distribution**: Pie chart showing available, assigned, maintenance, retired
-- **Category Breakdown**: Asset distribution by category (laptops, desktops, etc.)
-- **Condition Overview**: Bar chart of asset conditions (excellent, good, fair, poor)
-- **Department Utilization**: Utilization rates by department with interactive tooltips
-
-### Warranty Alerts Tab
-- **Critical Alerts**: Assets with warranty expiring in 30 days
-- **Warning Alerts**: Assets with warranty expiring in 31-60 days
-- **Info Alerts**: Assets with warranty expiring in 61-90 days
-- **Actionable Items**: Direct links to asset details and export options
-
-### Reports Tab
-- **Report Types**: Assets, Assignments, Warranty, Utilization, Department reports
-- **Export Formats**: CSV download with proper formatting and escaping
-- **Filtering Options**: Date range, department, category, status, condition filters
-- **Real-time Generation**: Server-side report generation with progress indicators
+#### Search Features Details:
+- **Global Search Component**: Search across assets, users, and assignments simultaneously
+- **Auto-complete**: Smart suggestions based on search history and popular terms
+- **Advanced Asset Filters**: Category, status, condition, location, warranty, price range
+- **Advanced User Filters**: Role, department, activity status, assignment history
+- **Saved Filter Management**: Create, edit, delete, and set default filters
+- **Search Preferences**: Customizable debounce delay, default views, auto-save settings
+- **Mobile Responsive**: Optimized search experience across all devices
 
 ## 🛠 Technology Stack
 
-### Frontend
-- **Next.js 15**: App Router with React 18 and TypeScript
-- **Tailwind CSS**: Utility-first styling with custom design system
-- **Shadcn/ui**: High-quality React components built on Radix UI
-- **Recharts**: Interactive charts and data visualizations
-- **React Hook Form**: Form handling with Zod validation
+- **Framework**: Next.js 15 (App Router) + React 18 + TypeScript
+- **Database**: PostgreSQL 16 + Drizzle ORM
+- **Authentication**: NextAuth.js v5 + Google OAuth
+- **Styling**: Tailwind CSS + Shadcn/ui components
+- **State Management**: React Context + Custom hooks
+- **Validation**: Zod schema validation
+- **Testing**: Vitest + React Testing Library
 
-### Backend
-- **Next.js API Routes**: RESTful API endpoints
-- **Server Actions**: Form processing and data mutations
-- **Drizzle ORM**: Type-safe database queries with PostgreSQL
-- **NextAuth.js v5**: Authentication with Google OAuth
-- **Zod**: Runtime type validation for API requests
+## 📦 Installation
 
-### Database & Infrastructure
-- **PostgreSQL**: Primary database with Drizzle ORM
-- **Drizzle Kit**: Database migrations and schema management
-- **Role-based Security**: Row-level security and permission checks
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd it-inventory
+   ```
 
-## 📈 API Endpoints
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-### Dashboard Analytics
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env.local
+   ```
+   
+   Configure the following variables:
+   ```env
+   # Database
+   DATABASE_URL="postgresql://username:password@localhost:5432/it_inventory"
+   
+   # Authentication
+   NEXTAUTH_SECRET="your-secret-key"
+   GOOGLE_CLIENT_ID="your-google-client-id"
+   GOOGLE_CLIENT_SECRET="your-google-client-secret"
+   NEXTAUTH_URL="http://localhost:3000"
+   ```
+
+4. **Set up the database**
+   ```bash
+   # Generate and run migrations
+   npm run db:generate
+   npm run db:migrate
+   
+   # Or push schema directly (development)
+   npm run db:push
+   ```
+
+5. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+## 🔧 Development
+
+### Available Scripts
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript type checking
+- `npm run test` - Run tests
+- `npm run db:studio` - Open Drizzle Studio
+
+### Project Structure
 ```
-GET /api/reports/dashboard
+it-inventory/
+├── app/                    # Next.js App Router pages
+│   ├── api/               # API routes
+│   ├── dashboard/         # Dashboard pages
+│   └── auth/              # Authentication pages
+├── components/            # React components
+│   ├── ui/               # Shadcn/ui components
+│   ├── search/           # Search and filter components
+│   ├── forms/            # Form components
+│   └── dashboard/        # Dashboard-specific components
+├── contexts/             # React contexts
+├── hooks/                # Custom React hooks
+├── lib/                  # Utilities and configurations
+│   ├── db/              # Database schema and utilities
+│   └── auth.ts          # Authentication configuration
+└── types/               # TypeScript type definitions
 ```
-Returns comprehensive dashboard metrics including:
-- Asset counts and utilization rates
-- Status and category breakdowns
+
+## 🔍 Search & Filtering System
+
+### Global Search
+The global search component provides cross-entity search functionality:
+
+```tsx
+import { GlobalSearch } from '@/components/search/GlobalSearch'
+
+<GlobalSearch 
+  placeholder="Search assets, users, assignments..."
+  showSuggestions={true}
+  maxResults={8}
+/>
+```
+
+**Features:**
+- Real-time search across assets, users, and assignments
+- Auto-complete with recent searches and popular terms
+- Keyboard navigation (arrow keys, enter, escape)
+- Click-outside to close
+- Search history persistence
+
+### Advanced Filters
+
+#### Asset Filters
+```tsx
+import { AdvancedAssetFilters } from '@/components/search/AdvancedAssetFilters'
+
+<AdvancedAssetFilters 
+  onFiltersChange={(filters) => {
+    // Handle filter changes
+  }}
+  showSavedFilters={true}
+/>
+```
+
+**Available Filters:**
+- **Search**: Name, tag, serial number, manufacturer, model
+- **Category**: Laptop, desktop, monitor, printer, etc.
+- **Status**: Available, assigned, maintenance, repair, retired
+- **Condition**: New, excellent, good, fair, poor, damaged
+- **Location**: Building, floor, room
+- **Assignment**: Assigned to specific user
+- **Warranty**: Expiring soon, date range
+- **Purchase**: Date range, price range
+- **Switches**: Assigned assets only, warranty expiring
+
+#### User Filters
+```tsx
+import { AdvancedUserFilters } from '@/components/search/AdvancedUserFilters'
+
+<AdvancedUserFilters 
+  onFiltersChange={(filters) => {
+    // Handle filter changes
+  }}
+  showSavedFilters={true}
+/>
+```
+
+**Available Filters:**
+- **Search**: Name, email, employee ID, department
+- **Role**: Super admin, admin, manager, user, viewer
+- **Department**: IT, HR, Finance, Marketing, etc.
+- **Status**: Active/inactive users
+- **Assignment**: Users with/without asset assignments
+- **Activity**: Last login date range, created date range
+
+### Search Persistence
+
+The system automatically persists search states and preferences:
+
+```tsx
+import { useEntitySearch, useSavedSearches } from '@/contexts/SearchContext'
+
+// Use entity-specific search
+const { currentSearch, updateSearch, clearSearch } = useEntitySearch('assets')
+
+// Use saved searches
+const { savedSearches, saveSearch, deleteSearch } = useSavedSearches('assets')
+```
+
+**Persistence Features:**
+- Current search state per entity type
+- Saved filter combinations with names
+- Recent search terms (last 10)
+- Search preferences (debounce delay, default view)
+- Cross-session persistence using localStorage
+
+### Search Hooks
+
+#### useDebounce Hook
+```tsx
+import { useDebounce } from '@/hooks/use-debounce'
+
+const debouncedValue = useDebounce(value, 300)
+```
+
+#### useDebouncedSearch Hook
+```tsx
+import { useDebouncedSearch } from '@/hooks/use-debounce'
+
+const { debouncedSearchTerm, isSearching } = useDebouncedSearch(searchTerm, 300)
+```
+
+## 🔐 Authentication & Authorization
+
+### User Roles
+- **Super Admin**: Full system access
+- **Admin**: System configuration and user management
+- **Manager**: Department oversight and approval workflows
+- **User**: Personal asset tracking and requests
+- **Viewer**: Read-only access to assigned assets
+
+### Role-Based Access
+- Asset management permissions
+- User management restrictions
+- Department-specific data access
+- Report generation permissions
+
+## 📊 Reporting & Analytics
+
+### Dashboard Metrics
+- Total assets by status
+- Utilization rates
 - Warranty expiration alerts
-- Recent activity data
-- Department-specific metrics
+- Recent activity summary
+- Department-wise breakdown
 
-### Report Export
-```
-POST /api/reports/export
-```
-Generates downloadable reports with filtering:
-- Assets report: Complete inventory with details
-- Assignments report: Assignment history and status
-- Warranty report: Assets with expiring warranties
-- Utilization report: Asset utilization by category
-- Department report: Asset distribution by department
+### Export Capabilities
+- CSV export for all reports
+- Filtered data export
+- Custom date ranges
+- Role-based export permissions
 
-## �� Setup Instructions
+## 🧪 Testing
 
-### Prerequisites
-- Node.js 18+ and npm
-- PostgreSQL database
-- Google OAuth credentials
-
-### Installation
+### Running Tests
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd it-inventory
+# Unit tests
+npm run test
 
-# Install dependencies
-npm install
+# Test with UI
+npm run test:ui
 
-# Set up environment variables
-cp .env.example .env.local
-# Edit .env.local with your configuration
+# E2E tests
+npm run test:e2e
 
-# Run database migrations
-npm run db:migrate
-
-# Start development server
-npm run dev
+# Coverage report
+npm run test:coverage
 ```
 
-### Environment Variables
-```env
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/it_inventory"
+### Test Structure
+- **Unit Tests**: Component and utility function tests
+- **Integration Tests**: API route and database operation tests
+- **E2E Tests**: Full user workflow testing
 
-# Authentication
-NEXTAUTH_SECRET="your-secret-key"
-NEXTAUTH_URL="http://localhost:3000"
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-```
+## 🚀 Deployment
 
-### Database Setup
+### Production Build
 ```bash
-# Generate migration
-npm run db:generate
-
-# Apply migrations
-npm run db:migrate
-
-# Seed initial data (optional)
-npm run db:seed
+npm run build
+npm run start
 ```
 
-## 🎯 Usage Examples
+### Environment Setup
+- Configure production database
+- Set up environment variables
+- Configure authentication providers
+- Set up monitoring and logging
 
-### Creating Asset Assignments
-1. Navigate to Assets → Select an asset → Click "Assign Asset"
-2. Asset is pre-selected in assignment form
-3. Choose user and set assignment details
-4. Submit to create assignment with audit trail
+## 📝 API Documentation
 
-### Generating Reports
-1. Go to Dashboard → Reports tab
-2. Select report type (Assets, Assignments, etc.)
-3. Configure filters (date range, department, etc.)
-4. Click "Generate Report" to download CSV
+### Asset Endpoints
+- `GET /api/assets` - List assets with filtering
+- `POST /api/assets` - Create new asset
+- `GET /api/assets/[id]` - Get asset details
+- `PUT /api/assets/[id]` - Update asset
+- `DELETE /api/assets/[id]` - Delete asset
 
-### Monitoring Warranty Alerts
-1. Dashboard → Warranty Alerts tab
-2. View assets grouped by expiration urgency
-3. Click "View" to see asset details
-4. Export warranty report for action planning
+### User Endpoints
+- `GET /api/users` - List users with filtering
+- `POST /api/users` - Create new user
+- `GET /api/users/[id]` - Get user details
+- `PUT /api/users/[id]` - Update user
 
-## 🔒 Security Features
+### Assignment Endpoints
+- `GET /api/assignments` - List assignments
+- `POST /api/assignments` - Create assignment
+- `PUT /api/assignments/[id]` - Update assignment
 
-### Authentication & Authorization
-- **Google OAuth**: Secure login with Google accounts
-- **Role-based Access**: Different permissions for different user types
-- **Session Management**: Secure session handling with NextAuth.js
-- **CSRF Protection**: Built-in protection against cross-site request forgery
-
-### Data Security
-- **Row-level Security**: Users can only access their department's data
-- **Input Validation**: All inputs validated with Zod schemas
-- **SQL Injection Protection**: Parameterized queries with Drizzle ORM
-- **XSS Prevention**: React's built-in XSS protection
-
-## 📝 Development Notes
-
-### Deviations from Original PRD
-- **Excel Export**: Currently supports CSV only; Excel export planned for future
-- **PDF Reports**: Not implemented in initial version
-- **Historical Trends**: Placeholder for future implementation
-- **Email Notifications**: Warranty alerts shown in UI only
-
-### Performance Optimizations
-- **Server-side Rendering**: Dashboard data fetched server-side
-- **Caching**: API responses cached appropriately
-- **Lazy Loading**: Charts and heavy components loaded on demand
-- **Database Indexing**: Optimized queries with proper indexes
-
-### Future Enhancements
-- **Real-time Updates**: WebSocket integration for live data
-- **Advanced Analytics**: Machine learning insights and predictions
-- **Mobile App**: React Native companion app
-- **Integration APIs**: Third-party system integrations
-- **Audit Logging**: Comprehensive activity logging
+### Report Endpoints
+- `GET /api/reports/dashboard` - Dashboard metrics
+- `POST /api/reports/export` - Export reports
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
+4. Add tests for new functionality
 5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
 
 ## 🆘 Support
 
 For support and questions:
 - Create an issue in the repository
-- Check the documentation in `/docs`
-- Review the API documentation
+- Check the documentation
+- Review the troubleshooting guide
 
 ---
 
-**Built with ❤️ using Next.js, TypeScript, and modern web technologies** 
+**Built with ❤️ using Next.js, React, and TypeScript** 

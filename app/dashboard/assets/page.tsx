@@ -4,6 +4,7 @@ import { assets, assetAssignments, user } from '@/lib/db/schema'
 import { hasRole, auth, getCurrentUser } from '@/lib/auth'
 import { eq, and, asc, desc, like, inArray, isNull, or, count, gte, lte, isNotNull } from 'drizzle-orm'
 import { AssetsClient } from './components/AssetsClient'
+import { AdvancedAssetFilters } from '@/components/search/AdvancedAssetFilters'
 import { 
   Plus, 
   Filter, 
@@ -228,23 +229,7 @@ export default async function AssetsPage({
     totalCount = 0
   }
 
-  // Fetch filter options for dropdowns
-  const [categories, statuses, conditions, buildings, users] = await Promise.all([
-    // Categories
-    db.select({ category: assets.category }).from(assets).where(eq(assets.isDeleted, false)).groupBy(assets.category),
-    
-    // Statuses
-    db.select({ status: assets.status }).from(assets).where(eq(assets.isDeleted, false)).groupBy(assets.status),
-    
-    // Conditions
-    db.select({ condition: assets.condition }).from(assets).where(eq(assets.isDeleted, false)).groupBy(assets.condition),
-    
-    // Buildings
-    db.select({ building: assets.building }).from(assets).where(eq(assets.isDeleted, false)).groupBy(assets.building),
-    
-    // Users (for assignment filter)
-    canViewAllAssets ? db.select({ id: user.id, name: user.name, email: user.email }).from(user).where(eq(user.isActive, true)) : Promise.resolve([])
-  ])
+
 
   // Calculate summary statistics
   const [totalAssets, availableAssets, assignedAssets, maintenanceAssets, warrantyExpiringCount] = await Promise.all([
@@ -349,6 +334,17 @@ export default async function AssetsPage({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Advanced Filters */}
+      <div className="mb-6">
+        <AdvancedAssetFilters 
+          onFiltersChange={(filters) => {
+            // This will be handled by the client component
+            console.log('Filters changed:', filters)
+          }}
+          showSavedFilters={true}
+        />
       </div>
 
       {/* Pass data to client component */}

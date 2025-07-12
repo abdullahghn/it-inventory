@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { SessionProvider } from '@/components/auth/SessionProvider'
 import { ToastProvider } from '@/components/ui/toast'
+import { SearchProvider } from '@/contexts/SearchContext'
 
 export const metadata: Metadata = {
   title: 'IT Inventory System',
@@ -20,9 +21,11 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <SessionProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
+          <SearchProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </SearchProvider>
         </SessionProvider>
       </body>
     </html>

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { UserMenu } from '@/components/dashboard/UserMenu'
 import { AuthLoading } from '@/components/auth/AuthLoading'
 import { Suspense } from 'react'
+import { GlobalSearch } from '@/components/search/GlobalSearch'
 import { 
   Home, 
   Computer, 
@@ -117,12 +118,21 @@ export default async function DashboardLayout({
       <main className="lg:ml-64 min-h-screen">
         {/* Top bar - Fixed */}
         <div className="sticky top-0 z-10 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6 shadow-sm">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 flex-1">
             {/* Mobile menu button - only visible on mobile */}
             <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
               <Menu className="h-5 w-5 text-gray-600" />
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">Dashboard</h1>
+            <h1 className="text-lg font-semibold text-gray-900 lg:hidden">Dashboard</h1>
+            
+            {/* Global Search - Hidden on mobile, visible on desktop */}
+            <div className="hidden lg:block flex-1 max-w-2xl mx-8">
+              <GlobalSearch 
+                placeholder="Search assets, users, assignments..."
+                showSuggestions={true}
+                maxResults={8}
+              />
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             {/* Mobile user menu - only visible on mobile */}
