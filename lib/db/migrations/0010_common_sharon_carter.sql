@@ -1,0 +1,1 @@
+ALTER TYPE "asset_condition" ADD VALUE 'new';

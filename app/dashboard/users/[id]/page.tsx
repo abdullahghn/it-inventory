@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { hasRole } from '@/lib/auth'
+import { UserAssetHistory } from '@/components/ui/user-asset-history'
 
 interface UserProfilePageProps {
   params: Promise<{
@@ -81,7 +82,7 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">User Information</h2>
         <div className="flex items-start space-x-4 mb-6">
           {currentUser.image && (
@@ -121,10 +122,53 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
                 </label>
                 <p className="text-gray-900 text-sm font-mono">{currentUser.id}</p>
               </div>
+              {currentUser.department && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Department
+                  </label>
+                  <p className="text-gray-900">{currentUser.department}</p>
+                </div>
+              )}
+              {currentUser.jobTitle && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Job Title
+                  </label>
+                  <p className="text-gray-900">{currentUser.jobTitle}</p>
+                </div>
+              )}
+              {currentUser.employeeId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Employee ID
+                  </label>
+                  <p className="text-gray-900">{currentUser.employeeId}</p>
+                </div>
+              )}
+              {currentUser.phone && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone
+                  </label>
+                  <p className="text-gray-900">{currentUser.phone}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Asset Assignment History */}
+      <UserAssetHistory 
+        userId={currentUser.id}
+        userName={currentUser.name || undefined}
+        showHeader={true}
+        maxItems={20}
+        showFilters={true}
+        showExport={true}
+        showRefresh={true}
+      />
     </div>
   )
 }

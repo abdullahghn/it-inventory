@@ -1,0 +1,1 @@
+ALTER TYPE "asset_category" ADD VALUE 'toner'; 

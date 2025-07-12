@@ -126,4 +126,20 @@ export {
   useToast,
   useInventoryToasts,
 } from './ui/toast'
-export type { Toast, ToastType } from './ui/toast' 
+export type { Toast, ToastType } from './ui/toast'
+
+// Role Selector Components
+export {
+  RoleSelector,
+  RoleSelectorDropdown,
+  RoleSelectorRadio,
+  RoleSelectorSelect,
+  ROLE_CONFIG,
+} from './ui/role-selector'
+
+// User Asset History Components
+export {
+  UserAssetHistory,
+  ProtectedUserAssetHistory,
+} from './ui/user-asset-history'
+export type { AssetAssignment } from './ui/user-asset-history' 

@@ -1,294 +1,297 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { assets } from '@/lib/db/schema'
 import { createAssetSchema, updateAssetSchema } from '@/lib/validations'
-import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
-import { eq, count } from 'drizzle-orm'
-import { 
-  dbUtils, 
-  dbTransaction, 
-  DatabaseError, 
-  NotFoundError,
-  DuplicateError,
-  formatConstraintError 
-} from '@/lib/db/utils'
-import { requireRole } from '@/lib/auth'
+import { eq } from 'drizzle-orm'
+import { auth } from '@/lib/auth'
 
-function generateAssetTag(): string {
-  const timestamp = Date.now().toString()
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-  return `AST-${timestamp.slice(-6)}${random}`
-}
-
-export async function createAsset(formData: FormData) {
+/**
+ * Creates a new asset with validation and audit logging
+ */
+export async function createAsset(data: any) {
   try {
-    // Check permissions - only admin and above can create assets
-    await requireRole('admin')
-    
-    console.log('Form data received:', Object.fromEntries(formData))
-    
-    // Get and process form data
-    const assetTagInput = formData.get('assetTag') as string
-    const nameInput = formData.get('name') as string
-    const categoryInput = formData.get('category') as string
-    
-    // Validate required fields
-    if (!nameInput || nameInput.trim() === '') {
-      throw new Error('Asset name is required')
-    }
-    
-    if (!categoryInput || categoryInput.trim() === '') {
-      throw new Error('Asset category is required')
-    }
-    
-    const data = {
-      assetTag: assetTagInput && assetTagInput.trim() !== '' 
-        ? assetTagInput.trim() 
-        : generateAssetTag(),
-      name: nameInput.trim(),
-      category: categoryInput,
-      subcategory: (formData.get('subcategory') as string)?.trim() || undefined,
-      serialNumber: (formData.get('serialNumber') as string)?.trim() || undefined,
-      model: (formData.get('model') as string)?.trim() || undefined,
-      manufacturer: (formData.get('manufacturer') as string)?.trim() || undefined,
-      status: (formData.get('status') as string) || 'available',
-      condition: (formData.get('condition') as string) || 'good',
-      
-      // Location fields - structured
-      building: (formData.get('building') as string)?.trim() || undefined,
-      floor: (formData.get('floor') as string)?.trim() || undefined,
-      room: (formData.get('room') as string)?.trim() || undefined,
-      desk: (formData.get('desk') as string)?.trim() || undefined,
-      locationNotes: (formData.get('locationNotes') as string)?.trim() || undefined,
-      
-      // Financial fields
-      purchasePrice: (() => {
-        const price = formData.get('purchasePrice') as string
-        return price && price.trim() !== '' ? price.trim() : undefined
-      })(),
-      currentValue: undefined, // Not in form yet
-      
-      // Metadata
-      description: (formData.get('description') as string)?.trim() || undefined,
-      notes: (formData.get('notes') as string)?.trim() || undefined,
-    }
-
-    console.log('Processed data:', data)
-    
-    // Validate the data
+    // Validate input data
     const validatedData = createAssetSchema.parse(data)
-    console.log('Validated data:', validatedData)
-
-    // Use enhanced database utilities
-    const result = await dbUtils.create(
-      () => db.insert(assets).values(validatedData).returning(),
-      'Asset'
-    )
     
-    console.log('Insert result:', result)
+    // Check for duplicate asset tag
+    const existingAsset = await db.query.assets.findFirst({
+      where: eq(assets.assetTag, validatedData.assetTag),
+    })
+    
+    if (existingAsset) {
+      throw new Error('Asset tag already exists')
+    }
 
+    // Get current user for audit trail
+    const session = await auth()
+    if (!session?.user) {
+      throw new Error('Unauthorized')
+    }
+
+    // Prepare asset data for database
+    const assetData = {
+      assetTag: validatedData.assetTag,
+      name: validatedData.name,
+      category: validatedData.category,
+      subcategory: validatedData.subcategory || null,
+      serialNumber: validatedData.serialNumber || null,
+      model: validatedData.model || null,
+      manufacturer: validatedData.manufacturer || null,
+      specifications: validatedData.specifications || null,
+      status: validatedData.status,
+      condition: validatedData.condition,
+      purchaseDate: validatedData.purchaseDate || null,
+      purchasePrice: validatedData.purchasePrice ? validatedData.purchasePrice.toString() : null,
+      currentValue: validatedData.currentValue ? validatedData.currentValue.toString() : null,
+      depreciationRate: validatedData.depreciationRate ? validatedData.depreciationRate.toString() : null,
+      warrantyExpiry: validatedData.warrantyExpiry || null,
+      building: validatedData.building || null,
+      floor: validatedData.floor || null,
+      room: validatedData.room || null,
+      desk: validatedData.desk || null,
+      locationNotes: validatedData.locationNotes || null,
+      description: validatedData.description || null,
+      notes: validatedData.notes || null,
+      createdBy: session.user.id,
+    }
+
+    // Insert asset into database
+    const [newAsset] = await db.insert(assets).values(assetData).returning()
+
+    // Log audit trail
+    await logAuditTrail({
+      action: 'create',
+      entityType: 'asset',
+      entityId: newAsset.id.toString(),
+      userId: session.user.id,
+      userEmail: session.user.email,
+      newValues: assetData,
+      description: `Asset ${validatedData.assetTag} created`,
+    })
+
+    // Revalidate cache
     revalidatePath('/dashboard/assets')
+    revalidatePath('/dashboard')
+
+    return newAsset
   } catch (error) {
-    console.error('Failed to create asset:', error)
-    
-    // Handle specific database errors
-    if (error instanceof DuplicateError) {
-      throw new Error('Asset tag or serial number already exists')
-    }
-    
-    if (error instanceof DatabaseError) {
-      throw new Error(formatConstraintError(error))
-    }
-    
+    console.error('Asset creation error:', error)
     if (error instanceof Error) {
-      console.error('Error message:', error.message)
-      if (error.name === 'ZodError') {
-        console.error('Validation errors:', JSON.stringify(error, null, 2))
-      }
+      throw new Error(error.message)
     }
-    
-    throw new Error(`Failed to create asset: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error('Failed to create asset')
   }
-  
-  redirect('/dashboard/assets')
 }
 
-export async function updateAsset(id: number, formData: FormData) {
+/**
+ * Updates an existing asset with validation and audit logging
+ */
+export async function updateAsset(data: any) {
   try {
-    // Check permissions - only admin and above can update assets
-    await requireRole('admin')
+    // Validate input data
+    const validatedData = updateAssetSchema.parse(data)
     
-    console.log('Updating asset ID:', id)
-    console.log('Form data received:', Object.fromEntries(formData))
+    // Get current user for audit trail
+    const session = await auth()
+    if (!session?.user) {
+      throw new Error('Unauthorized')
+    }
+
+    // Check if asset exists and get current values
+    const existingAsset = await db.query.assets.findFirst({
+      where: eq(assets.id, validatedData.id),
+    })
     
-    const data = {
-      assetTag: (formData.get('assetTag') as string)?.trim() || undefined,
-      name: (formData.get('name') as string)?.trim(),
-      category: formData.get('category') as string,
-      subcategory: (formData.get('subcategory') as string)?.trim() || undefined,
-      serialNumber: (formData.get('serialNumber') as string)?.trim() || undefined,
-      model: (formData.get('model') as string)?.trim() || undefined,
-      manufacturer: (formData.get('manufacturer') as string)?.trim() || undefined,
-      status: formData.get('status') as string,
-      condition: formData.get('condition') as string,
+    if (!existingAsset) {
+      throw new Error('Asset not found')
+    }
+
+    // Check for duplicate asset tag (if changed)
+    if (validatedData.assetTag !== existingAsset.assetTag) {
+      const duplicateAsset = await db.query.assets.findFirst({
+        where: eq(assets.assetTag, validatedData.assetTag),
+      })
       
-      // Location fields - structured
-      building: (formData.get('building') as string)?.trim() || undefined,
-      floor: (formData.get('floor') as string)?.trim() || undefined,
-      room: (formData.get('room') as string)?.trim() || undefined,
-      desk: (formData.get('desk') as string)?.trim() || undefined,
-      locationNotes: (formData.get('locationNotes') as string)?.trim() || undefined,
-      
-      // Financial fields
-      purchasePrice: (() => {
-        const price = formData.get('purchasePrice') as string
-        return price && price.trim() !== '' ? price.trim() : undefined
-      })(),
-      currentValue: (() => {
-        const value = formData.get('currentValue') as string
-        return value && value.trim() !== '' ? value.trim() : undefined
-      })(),
-      
-      // Metadata
-      description: (formData.get('description') as string)?.trim() || undefined,
-      notes: (formData.get('notes') as string)?.trim() || undefined,
-    }
-
-    console.log('Processed data:', data)
-
-    // Validate required fields
-    if (!data.name || data.name.trim() === '') {
-      throw new Error('Asset name is required')
-    }
-
-    const validatedData = updateAssetSchema.parse({ ...data, id })
-    console.log('Validated data:', validatedData)
-
-    // Remove id from update data (it's used for validation only)
-    const { id: _, ...updateData } = validatedData
-
-    // Use enhanced database utilities
-    const result = await dbUtils.update(
-      () => db.update(assets).set({ ...updateData, updatedAt: new Date() }).where(eq(assets.id, id)).returning(),
-      'Asset',
-      id
-    )
-    
-    console.log('Update result:', result)
-
-    revalidatePath('/dashboard/assets')
-    revalidatePath(`/dashboard/assets/${id}`)
-  } catch (error) {
-    console.error('Failed to update asset:', error)
-    
-    if (error instanceof NotFoundError) {
-      throw new Error(`Asset with ID ${id} not found`)
-    }
-    
-    if (error instanceof DuplicateError) {
-      throw new Error('Asset tag or serial number already exists')
-    }
-    
-    if (error instanceof DatabaseError) {
-      throw new Error(formatConstraintError(error))
-    }
-    
-    if (error instanceof Error) {
-      console.error('Error message:', error.message)
-      if (error.name === 'ZodError') {
-        console.error('Validation errors:', JSON.stringify(error, null, 2))
+      if (duplicateAsset) {
+        throw new Error('Asset tag already exists')
       }
     }
-    
-    throw new Error(`Failed to update asset: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
+    // Prepare update data
+    const updateData = {
+      assetTag: validatedData.assetTag,
+      name: validatedData.name,
+      category: validatedData.category,
+      subcategory: validatedData.subcategory || null,
+      serialNumber: validatedData.serialNumber || null,
+      model: validatedData.model || null,
+      manufacturer: validatedData.manufacturer || null,
+      specifications: validatedData.specifications || null,
+      status: validatedData.status,
+      condition: validatedData.condition,
+      purchaseDate: validatedData.purchaseDate || null,
+      purchasePrice: validatedData.purchasePrice ? validatedData.purchasePrice.toString() : null,
+      currentValue: validatedData.currentValue ? validatedData.currentValue.toString() : null,
+      depreciationRate: validatedData.depreciationRate ? validatedData.depreciationRate.toString() : null,
+      warrantyExpiry: validatedData.warrantyExpiry || null,
+      building: validatedData.building || null,
+      floor: validatedData.floor || null,
+      room: validatedData.room || null,
+      desk: validatedData.desk || null,
+      locationNotes: validatedData.locationNotes || null,
+      description: validatedData.description || null,
+      notes: validatedData.notes || null,
+      updatedAt: new Date(),
+    }
+
+    // Update asset in database
+    const [updatedAsset] = await db
+      .update(assets)
+      .set(updateData)
+      .where(eq(assets.id, validatedData.id))
+      .returning()
+
+    // Log audit trail
+    await logAuditTrail({
+      action: 'update',
+      entityType: 'asset',
+      entityId: validatedData.id.toString(),
+      userId: session.user.id,
+      userEmail: session.user.email,
+      oldValues: existingAsset,
+      newValues: updateData,
+      changedFields: getChangedFields(existingAsset, updateData),
+      description: `Asset ${validatedData.assetTag} updated`,
+    })
+
+    // Revalidate cache
+    revalidatePath('/dashboard/assets')
+    revalidatePath('/dashboard')
+
+    return updatedAsset
+  } catch (error) {
+    console.error('Asset update error:', error)
+    if (error instanceof Error) {
+      throw new Error(error.message)
+    }
+    throw new Error('Failed to update asset')
   }
-  
-  // Redirect to asset detail page after successful update
-  redirect(`/dashboard/assets/${id}`)
 }
 
-export async function deleteAsset(id: number) {
+/**
+ * Deletes an asset (soft delete) with validation and audit logging
+ */
+export async function deleteAsset(assetId: number) {
   try {
-    // Check permissions - only admin and above can delete assets
-    await requireRole('admin')
-    
-    // Use enhanced database utilities with soft delete
-    await dbUtils.update(
-      () => db.update(assets).set({ isDeleted: true, updatedAt: new Date() }).where(eq(assets.id, id)).returning(),
-      'Asset',
-      id
-    )
-
-    revalidatePath('/dashboard/assets')
-  } catch (error) {
-    console.error('Failed to delete asset:', error)
-    
-    if (error instanceof NotFoundError) {
-      throw new Error(`Asset with ID ${id} not found`)
+    // Get current user for audit trail
+    const session = await auth()
+    if (!session?.user) {
+      throw new Error('Unauthorized')
     }
+
+    // Check if asset exists
+    const existingAsset = await db.query.assets.findFirst({
+      where: eq(assets.id, assetId),
+    })
     
+    if (!existingAsset) {
+      throw new Error('Asset not found')
+    }
+
+    // Check if asset is currently assigned
+    const { assetAssignments } = await import('@/lib/db/schema')
+    const activeAssignment = await db.query.assetAssignments.findFirst({
+      where: eq(assetAssignments.assetId, assetId),
+    })
+    
+    if (activeAssignment) {
+      throw new Error('Cannot delete asset that is currently assigned')
+    }
+
+    // Soft delete asset
+    const [deletedAsset] = await db
+      .update(assets)
+      .set({ 
+        isDeleted: true, 
+        updatedAt: new Date() 
+      })
+      .where(eq(assets.id, assetId))
+      .returning()
+
+    // Log audit trail
+    await logAuditTrail({
+      action: 'delete',
+      entityType: 'asset',
+      entityId: assetId.toString(),
+      userId: session.user.id,
+      userEmail: session.user.email,
+      oldValues: existingAsset,
+      description: `Asset ${existingAsset.assetTag} deleted`,
+    })
+
+    // Revalidate cache
+    revalidatePath('/dashboard/assets')
+    revalidatePath('/dashboard')
+
+    return deletedAsset
+  } catch (error) {
+    console.error('Asset deletion error:', error)
+    if (error instanceof Error) {
+      throw new Error(error.message)
+    }
     throw new Error('Failed to delete asset')
   }
+}
+
+/**
+ * Helper function to get changed fields for audit logging
+ */
+function getChangedFields(oldData: any, newData: any): string[] {
+  const changedFields: string[] = []
   
-  redirect('/dashboard/assets')
-}
-
-export async function getAssets() {
-  try {
-    // Use enhanced database utilities
-    return await dbUtils.findMany(
-      () => db.select().from(assets).where(eq(assets.isDeleted, false)),
-      'Failed to fetch assets'
-    )
-  } catch (error) {
-    console.error('Failed to fetch assets:', error)
-    return []
-  }
-}
-
-export async function getAssetById(id: number) {
-  try {
-    // Use enhanced database utilities
-    return await dbUtils.findOne(
-      () => db.select().from(assets).where(eq(assets.id, id)),
-      'Asset',
-      id
-    )
-  } catch (error) {
-    if (error instanceof NotFoundError) {
-      return null
+  for (const key in newData) {
+    if (oldData[key] !== newData[key]) {
+      changedFields.push(key)
     }
-    console.error('Failed to fetch asset:', error)
-    return null
   }
+  
+  return changedFields
 }
 
-// Example: Get assets with pagination
-export async function getAssetsPaginated(page: number = 1, limit: number = 20) {
+/**
+ * Helper function to log audit trail
+ */
+async function logAuditTrail(data: {
+  action: string
+  entityType: string
+  entityId: string
+  userId: string
+  userEmail?: string
+  oldValues?: any
+  newValues?: any
+  changedFields?: string[]
+  description: string
+}) {
   try {
-    return await dbUtils.paginate(
-      (limit, offset) => db.select().from(assets)
-        .where(eq(assets.isDeleted, false))
-        .limit(limit)
-        .offset(offset),
-      () => db.select({ count: count() }).from(assets).where(eq(assets.isDeleted, false)),
-      page,
-      limit
-    )
+    // Import audit logs table
+    const { auditLogs } = await import('@/lib/db/schema')
+    
+    await db.insert(auditLogs).values({
+      action: data.action as any,
+      entityType: data.entityType,
+      entityId: data.entityId,
+      userId: data.userId,
+      userEmail: data.userEmail,
+      oldValues: data.oldValues ? JSON.stringify(data.oldValues) : null,
+      newValues: data.newValues ? JSON.stringify(data.newValues) : null,
+      changedFields: data.changedFields ? JSON.stringify(data.changedFields) : null,
+      description: data.description,
+      timestamp: new Date(),
+    })
   } catch (error) {
-    console.error('Failed to fetch paginated assets:', error)
-    return {
-      data: [],
-      pagination: {
-        page,
-        limit,
-        total: 0,
-        totalPages: 0,
-        hasNext: false,
-        hasPrev: false
-      }
-    }
+    console.error('Audit logging error:', error)
+    // Don't throw error for audit logging failures
   }
 } 

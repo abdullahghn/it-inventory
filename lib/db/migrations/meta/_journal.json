@@ -64,6 +64,34 @@
       "when": 1751526348450,
       "tag": "0008_clumsy_mimic",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1752047875502,
+      "tag": "0009_late_wolverine",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1752047894561,
+      "tag": "0010_common_sharon_carter",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1752051537290,
+      "tag": "0011_aberrant_shinobi_shaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1752154620534,
+      "tag": "0012_wealthy_warbird",
+      "breakpoints": true
     }
   ]
 }

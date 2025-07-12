@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { DataTable } from '@/components/ui/data-table'
 import { Badge } from '@/components/ui/badge'
@@ -62,10 +62,12 @@ const getStatusBadgeVariant = (status: string) => {
 
 const getConditionBadgeVariant = (condition: string) => {
   switch (condition) {
+    case 'new': return 'default'
     case 'excellent': return 'success'
     case 'good': return 'info'
     case 'fair': return 'warning' 
     case 'poor': return 'destructive'
+    case 'damaged': return 'destructive'
     default: return 'secondary'
   }
 }
@@ -80,6 +82,11 @@ export function AssetsClient({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null)
   const { success, error: showError } = useToast()
+
+  // Update assets when initialAssets change (e.g., after page refresh)
+  React.useEffect(() => {
+    setAssets(initialAssets)
+  }, [initialAssets])
 
   const handleDelete = async (asset: Asset) => {
     try {

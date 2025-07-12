@@ -1,144 +1,333 @@
 'use server'
 
-import { db } from '@/lib/db'
-import { assetAssignments, assets } from '@/lib/db/schema'
-// Remove unused validation imports
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
+import { db } from '@/lib/db'
+import { assetAssignments, assets, user } from '@/lib/db/schema'
+import { createAssignmentSchema, updateAssignmentSchema } from '@/lib/validations'
 import { eq, and } from 'drizzle-orm'
-import { requireRole } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 
-export async function assignAsset(formData: FormData) {
+/**
+ * Creates a new asset assignment with validation and audit logging
+ */
+export async function createAssignment(data: any) {
   try {
-    // Check permissions - only manager and above can assign assets
-    await requireRole('manager')
+    // Validate input data
+    const validatedData = createAssignmentSchema.parse(data)
     
-    const data = {
-      assetId: parseInt(formData.get('assetId') as string),
-      userId: formData.get('userId') as string, // Keep as string since user.id is text
-      notes: formData.get('notes') as string,
+    // Get current user for audit trail
+    const session = await auth()
+    if (!session?.user) {
+      throw new Error('Unauthorized')
     }
 
-    // Basic validation
-    if (!data.assetId || !data.userId) {
-      throw new Error('Asset ID and User ID are required')
+    // Check if asset exists and is available
+    const asset = await db.query.assets.findFirst({
+      where: eq(assets.id, validatedData.assetId),
+    })
+    
+    if (!asset) {
+      throw new Error('Asset not found')
+    }
+    
+    if (asset.status !== 'available') {
+      throw new Error('Asset is not available for assignment')
     }
 
-    // Start transaction
-    await db.transaction(async (tx) => {
-      // Create assignment
-      await tx.insert(assetAssignments).values({
-        assetId: data.assetId,
-        userId: data.userId,
-        notes: data.notes,
-        assignedAt: new Date(),
-        isActive: true,
+    // Check if user exists and is active
+    const assignedUser = await db.query.user.findFirst({
+      where: eq(user.id, validatedData.userId),
+    })
+    
+    if (!assignedUser) {
+      throw new Error('User not found')
+    }
+    
+    if (!assignedUser.isActive) {
+      throw new Error('User account is not active')
+    }
+
+    // Check if asset is already assigned
+    const existingAssignment = await db.query.assetAssignments.findFirst({
+      where: and(
+        eq(assetAssignments.assetId, validatedData.assetId),
+        eq(assetAssignments.isActive, true)
+      ),
+    })
+    
+    if (existingAssignment) {
+      throw new Error('Asset is already assigned to another user')
+    }
+
+    // Prepare assignment data
+    const assignmentData = {
+      assetId: validatedData.assetId,
+      userId: validatedData.userId,
+      purpose: validatedData.purpose || null,
+      expectedReturnAt: validatedData.expectedReturnAt || null,
+      notes: validatedData.notes || null,
+      assignedBy: data.assignedBy || session.user.id,
+      status: 'active' as const,
+      isActive: true,
+    }
+
+    // Create assignment
+    const [newAssignment] = await db.insert(assetAssignments).values(assignmentData).returning()
+
+    // Update asset status to assigned
+    await db
+      .update(assets)
+      .set({ 
+        status: 'assigned',
+        updatedAt: new Date() 
       })
-      
-      // Update asset status to assigned
-      await tx.update(assets)
-        .set({ status: 'assigned', updatedAt: new Date() })
-        .where(eq(assets.id, data.assetId))
+      .where(eq(assets.id, validatedData.assetId))
+
+    // Log audit trail
+    await logAuditTrail({
+      action: 'assign',
+      entityType: 'assignment',
+      entityId: newAssignment.id.toString(),
+      userId: session.user.id,
+      userEmail: session.user.email,
+      newValues: assignmentData,
+      description: `Asset ${asset.assetTag} assigned to ${assignedUser.name}`,
     })
 
-    revalidatePath('/dashboard/assets')
-    revalidatePath(`/dashboard/assets/${data.assetId}`)
-    revalidatePath(`/dashboard/users/${data.userId}`)
+    // Revalidate cache
     revalidatePath('/dashboard/assignments')
+    revalidatePath('/dashboard/assets')
+    revalidatePath('/dashboard')
+
+    return newAssignment
   } catch (error) {
-    console.error('Failed to assign asset:', error)
-    throw new Error('Failed to assign asset')
+    console.error('Assignment creation error:', error)
+    if (error instanceof Error) {
+      throw new Error(error.message)
+    }
+    throw new Error('Failed to create assignment')
   }
-  
-  // Move redirect outside try-catch to prevent catching the Next.js redirect error
-  redirect('/dashboard/assignments')
 }
 
-export async function returnAsset(formData: FormData) {
+/**
+ * Updates an existing assignment with validation and audit logging
+ */
+export async function updateAssignment(data: any) {
   try {
-    // Check permissions - only manager and above can return assets
-    await requireRole('manager')
+    // Validate input data
+    const validatedData = updateAssignmentSchema.parse(data)
     
-    const assignmentId = parseInt(formData.get('assignmentId') as string)
-    const notes = formData.get('notes') as string
-
-    if (!assignmentId) {
-      throw new Error('Assignment ID is required')
+    // Get current user for audit trail
+    const session = await auth()
+    if (!session?.user) {
+      throw new Error('Unauthorized')
     }
 
-    const assignment = await db.select()
-      .from(assetAssignments)
-      .where(eq(assetAssignments.id, assignmentId))
-
-    if (!assignment[0]) {
+    // Check if assignment exists
+    const existingAssignment = await db.query.assetAssignments.findFirst({
+      where: eq(assetAssignments.id, validatedData.id),
+    })
+    
+    if (!existingAssignment) {
       throw new Error('Assignment not found')
     }
 
-    // Start transaction
-    await db.transaction(async (tx) => {
-      // Update assignment as returned
-      await tx.update(assetAssignments)
-        .set({
-          returnedAt: new Date(),
-          isActive: false,
-          notes: notes || assignment[0].notes,
-        })
-        .where(eq(assetAssignments.id, assignmentId))
+    // Prepare update data
+    const updateData: any = {
+      purpose: validatedData.purpose || null,
+      expectedReturnAt: validatedData.expectedReturnAt || null,
+      notes: validatedData.notes || null,
+      updatedAt: new Date(),
+    }
 
-      // Update asset status to available
-      await tx.update(assets)
-        .set({ status: 'available', updatedAt: new Date() })
-        .where(eq(assets.id, assignment[0].assetId!))
+    // Handle status changes
+    if (validatedData.status) {
+      updateData.status = validatedData.status
+      
+      // If returning, set return details
+      if (validatedData.status === 'returned') {
+        updateData.returnedAt = validatedData.returnedAt || new Date()
+        updateData.actualReturnCondition = validatedData.actualReturnCondition || null
+        updateData.returnedBy = session.user.id
+        updateData.isActive = false
+        
+        // Update asset status back to available
+        await db
+          .update(assets)
+          .set({ 
+            status: 'available',
+            updatedAt: new Date() 
+          })
+          .where(eq(assets.id, existingAssignment.assetId))
+      }
+    }
+
+    // Update assignment
+    const [updatedAssignment] = await db
+      .update(assetAssignments)
+      .set(updateData)
+      .where(eq(assetAssignments.id, validatedData.id))
+      .returning()
+
+    // Log audit trail
+    await logAuditTrail({
+      action: 'update',
+      entityType: 'assignment',
+      entityId: validatedData.id.toString(),
+      userId: session.user.id,
+      userEmail: session.user.email,
+      oldValues: existingAssignment,
+      newValues: updateData,
+      changedFields: getChangedFields(existingAssignment, updateData),
+      description: `Assignment ${validatedData.id} updated`,
     })
 
-    revalidatePath('/dashboard/assets')
-    revalidatePath(`/dashboard/assets/${assignment[0].assetId}`)
-    revalidatePath(`/dashboard/users/${assignment[0].userId}`)
+    // Revalidate cache
     revalidatePath('/dashboard/assignments')
-    revalidatePath(`/dashboard/assignments/${assignmentId}`)
-  } catch (error) {
-    console.error('Failed to return asset:', error)
-    throw new Error('Failed to return asset')
-  }
+    revalidatePath('/dashboard/assets')
+    revalidatePath('/dashboard')
 
-  // Redirect after successful return
-  redirect('/dashboard/assignments')
-}
-
-export async function getActiveAssignments() {
-  try {
-    return await db.select()
-      .from(assetAssignments)
-      .where(eq(assetAssignments.isActive, true))
+    return updatedAssignment
   } catch (error) {
-    console.error('Failed to fetch assignments:', error)
-    return []
+    console.error('Assignment update error:', error)
+    if (error instanceof Error) {
+      throw new Error(error.message)
+    }
+    throw new Error('Failed to update assignment')
   }
 }
 
-export async function getAssignmentsByUser(userId: string) {
+/**
+ * Returns an asset assignment with validation and audit logging
+ */
+export async function returnAssignment(data: any) {
   try {
-    return await db.select()
-      .from(assetAssignments)
-      .where(
-        and(
-          eq(assetAssignments.userId, userId),
-          eq(assetAssignments.isActive, true)
-        )
-      )
+    // Validate input data
+    const { returnAssignmentSchema } = await import('@/lib/validations')
+    const validatedData = returnAssignmentSchema.parse(data)
+    
+    // Get current user for audit trail
+    const session = await auth()
+    if (!session?.user) {
+      throw new Error('Unauthorized')
+    }
+
+    // Check if assignment exists and is active
+    const existingAssignment = await db.query.assetAssignments.findFirst({
+      where: and(
+        eq(assetAssignments.id, validatedData.assignmentId),
+        eq(assetAssignments.isActive, true)
+      ),
+    })
+    
+    if (!existingAssignment) {
+      throw new Error('Active assignment not found')
+    }
+
+    // Prepare return data
+    const returnData = {
+      status: 'returned' as const,
+      returnedAt: validatedData.returnedAt,
+      actualReturnCondition: validatedData.actualReturnCondition || null,
+      returnNotes: validatedData.returnNotes || null,
+      returnedBy: session.user.id,
+      isActive: false,
+      updatedAt: new Date(),
+    }
+
+    // Update assignment
+    const [returnedAssignment] = await db
+      .update(assetAssignments)
+      .set(returnData)
+      .where(eq(assetAssignments.id, validatedData.assignmentId))
+      .returning()
+
+    // Update asset status back to available
+    await db
+      .update(assets)
+      .set({ 
+        status: 'available',
+        updatedAt: new Date() 
+      })
+      .where(eq(assets.id, existingAssignment.assetId))
+
+    // Log audit trail
+    await logAuditTrail({
+      action: 'return',
+      entityType: 'assignment',
+      entityId: validatedData.assignmentId.toString(),
+      userId: session.user.id,
+      userEmail: session.user.email,
+      oldValues: existingAssignment,
+      newValues: returnData,
+      description: `Asset assignment ${validatedData.assignmentId} returned`,
+    })
+
+    // Revalidate cache
+    revalidatePath('/dashboard/assignments')
+    revalidatePath('/dashboard/assets')
+    revalidatePath('/dashboard')
+
+    return returnedAssignment
   } catch (error) {
-    console.error('Failed to fetch user assignments:', error)
-    return []
+    console.error('Assignment return error:', error)
+    if (error instanceof Error) {
+      throw new Error(error.message)
+    }
+    throw new Error('Failed to return assignment')
   }
 }
 
-export async function getAssignmentsByAsset(assetId: number) {
+// Export alias for backward compatibility
+export const returnAsset = returnAssignment
+
+/**
+ * Helper function to get changed fields for audit logging
+ */
+function getChangedFields(oldData: any, newData: any): string[] {
+  const changedFields: string[] = []
+  
+  for (const key in newData) {
+    if (oldData[key] !== newData[key]) {
+      changedFields.push(key)
+    }
+  }
+  
+  return changedFields
+}
+
+/**
+ * Helper function to log audit trail
+ */
+async function logAuditTrail(data: {
+  action: string
+  entityType: string
+  entityId: string
+  userId: string
+  userEmail?: string
+  oldValues?: any
+  newValues?: any
+  changedFields?: string[]
+  description: string
+}) {
   try {
-    return await db.select()
-      .from(assetAssignments)
-      .where(eq(assetAssignments.assetId, assetId))
+    // Import audit logs table
+    const { auditLogs } = await import('@/lib/db/schema')
+    
+    await db.insert(auditLogs).values({
+      action: data.action as any,
+      entityType: data.entityType,
+      entityId: data.entityId,
+      userId: data.userId,
+      userEmail: data.userEmail,
+      oldValues: data.oldValues ? JSON.stringify(data.oldValues) : null,
+      newValues: data.newValues ? JSON.stringify(data.newValues) : null,
+      changedFields: data.changedFields ? JSON.stringify(data.changedFields) : null,
+      description: data.description,
+      timestamp: new Date(),
+    })
   } catch (error) {
-    console.error('Failed to fetch asset assignments:', error)
-    return []
+    console.error('Audit logging error:', error)
+    // Don't throw error for audit logging failures
   }
 } 

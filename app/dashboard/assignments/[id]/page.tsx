@@ -13,6 +13,13 @@ export default async function AssignmentDetailPage({
   const { id } = await params
   const assignmentId = parseInt(id)
 
+  // Server action wrapper for returnAsset
+  async function handleReturnAsset(formData: FormData) {
+    'use server'
+    const assignmentId = parseInt(formData.get('assignmentId') as string)
+    await returnAsset({ assignmentId })
+  }
+
   // Fetch assignment with asset and user details
   const assignment = await db
     .select({
@@ -60,7 +67,7 @@ export default async function AssignmentDetailPage({
               Back to Assignments
             </Link>
             {!assignmentData.returnedAt && (
-              <form action={returnAsset} className="inline">
+              <form action={handleReturnAsset} className="inline">
                 <input type="hidden" name="assignmentId" value={assignmentData.id} />
                                  <button 
                    type="submit"

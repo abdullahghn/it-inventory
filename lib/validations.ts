@@ -10,7 +10,7 @@ export const assetStatusSchema = z.enum(['available', 'assigned', 'maintenance',
 
 export const assetCategorySchema = z.enum(['laptop', 'desktop', 'monitor', 'printer', 'phone', 'tablet', 'server', 'network_device', 'software_license', 'toner', 'other'])
 
-export const assetConditionSchema = z.enum(['excellent', 'good', 'fair', 'poor', 'damaged'])
+export const assetConditionSchema = z.enum(['new', 'excellent', 'good', 'fair', 'poor', 'damaged'])
 
 export const maintenanceTypeSchema = z.enum(['preventive', 'corrective', 'upgrade', 'repair', 'inspection', 'emergency'])
 
@@ -97,6 +97,7 @@ export const updateAssignmentSchema = z.object({
   returnNotes: z.string().optional().nullable(),
   expectedReturnAt: z.coerce.date().optional().nullable(),
   notes: z.string().optional().nullable(),
+  purpose: z.string().max(255).optional().nullable(),
 })
 
 export const returnAssignmentSchema = z.object({
@@ -248,11 +249,80 @@ export const maintenanceFiltersSchema = z.object({
 
 export const bulkOperationSchema = z.object({
   operation: z.enum(['create', 'update', 'delete', 'assign', 'return']),
-  data: z.array(z.any()).min(1, 'At least one item is required').max(100, 'Maximum 100 items allowed'),
-  options: z.object({
-    validateOnly: z.boolean().default(false),
-    continueOnError: z.boolean().default(true),
-  }).optional(),
+  entityType: z.enum(['assets', 'users', 'assignments']),
+  ids: z.array(z.union([z.string(), z.number()])).min(1, 'At least one item must be selected'),
+  data: z.record(z.any()).optional(), // For update operations
+})
+
+// Bulk import validation schemas
+export const bulkImportSchema = z.object({
+  file: z.instanceof(File, { message: 'Please select a file' }),
+  entityType: z.enum(['assets', 'users', 'assignments']),
+  hasHeaders: z.boolean(),
+  delimiter: z.enum([',', ';', '\t']),
+  updateExisting: z.boolean(),
+  skipErrors: z.boolean(),
+})
+
+// CSV/Excel row validation schemas
+export const assetImportRowSchema = z.object({
+  assetTag: z.string().min(1, 'Asset tag is required').max(50),
+  name: z.string().min(1, 'Asset name is required').max(255),
+  category: assetCategorySchema,
+  subcategory: z.string().max(100).optional(),
+  serialNumber: z.string().max(255).optional(),
+  model: z.string().max(255).optional(),
+  manufacturer: z.string().max(255).optional(),
+  status: assetStatusSchema.default('available'),
+  condition: assetConditionSchema.default('good'),
+  purchaseDate: z.string().optional(), // Will be parsed as date
+  purchasePrice: z.string().optional(), // Will be parsed as decimal
+  warrantyExpiry: z.string().optional(), // Will be parsed as date
+  building: z.string().max(100).optional(),
+  floor: z.string().max(20).optional(),
+  room: z.string().max(50).optional(),
+  desk: z.string().max(50).optional(),
+  description: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+export const userImportRowSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  email: z.string().email('Invalid email address').max(255),
+  department: z.string().max(100).optional(),
+  jobTitle: z.string().max(100).optional(),
+  employeeId: z.string().max(50).optional(),
+  phone: z.string().max(20).optional(),
+  role: userRoleSchema.default('user'),
+  isActive: z.boolean().default(true),
+})
+
+export const assignmentImportRowSchema = z.object({
+  assetTag: z.string().min(1, 'Asset tag is required'),
+  userEmail: z.string().email('Invalid user email'),
+  purpose: z.string().max(255).optional(),
+  expectedReturnAt: z.string().optional(), // Will be parsed as date
+  notes: z.string().optional(),
+})
+
+// Import result validation
+export const importResultSchema = z.object({
+  success: z.boolean(),
+  totalRows: z.number().int().positive(),
+  processedRows: z.number().int().min(0),
+  successRows: z.number().int().min(0),
+  errorRows: z.number().int().min(0),
+  errors: z.array(z.object({
+    row: z.number().int().positive(),
+    field: z.string().optional(),
+    message: z.string(),
+    data: z.record(z.any()).optional(),
+  })).optional(),
+  warnings: z.array(z.object({
+    row: z.number().int().positive(),
+    field: z.string().optional(),
+    message: z.string(),
+  })).optional(),
 })
 
 // ============================================================================
@@ -300,35 +370,181 @@ export const paginatedResponseSchema = z.object({
 })
 
 // ============================================================================
-// FORM VALIDATION SCHEMAS - For React Hook Form integration
+// FORM-SPECIFIC VALIDATION SCHEMAS
 // ============================================================================
 
-export const assetFormSchema = createAssetSchema.omit({ 
-  purchaseDate: true, 
-  warrantyExpiry: true 
-}).extend({
-  purchaseDate: z.string().optional().nullable(),
-  warrantyExpiry: z.string().optional().nullable(),
+// Enhanced form schemas with better error messages and conditional validation
+export const assetFormSchema = z.object({
+  // Basic fields
+  assetTag: z.string()
+    .min(1, 'Asset tag is required')
+    .max(50, 'Asset tag must be 50 characters or less')
+    .regex(/^[A-Z]{2,3}-\d{4,}$/, 'Asset tag must follow format: IT-0001 or IT-00001'),
+  
+  name: z.string().min(1, 'Asset name is required').max(255),
+  category: assetCategorySchema,
+  subcategory: z.string().max(100).optional().nullable(),
+  serialNumber: z.string().max(255).optional().nullable(),
+  model: z.string().max(255).optional().nullable(),
+  manufacturer: z.string().max(255).optional().nullable(),
+  specifications: z.record(z.any()).optional().nullable(),
+  
+  // Status and condition
+  status: assetStatusSchema,
+  condition: assetConditionSchema,
+  
+  // Financial fields
+  purchaseDate: z.coerce.date()
+    .max(new Date(), 'Purchase date cannot be in the future')
+    .optional()
+    .nullable(),
+  
+  purchasePrice: z.string()
+    .regex(/^\d+(\.\d{1,2})?$/, 'Price must be a valid number with up to 2 decimal places')
+    .optional()
+    .nullable(),
+  
+  currentValue: z.string()
+    .regex(/^\d+(\.\d{1,2})?$/, 'Value must be a valid number with up to 2 decimal places')
+    .optional()
+    .nullable(),
+  
+  depreciationRate: z.string()
+    .regex(/^\d+(\.\d{1,2})?$/, 'Rate must be a valid number with up to 2 decimal places')
+    .optional()
+    .nullable(),
+  
+  warrantyExpiry: z.coerce.date()
+    .min(new Date(), 'Warranty expiry must be in the future')
+    .optional()
+    .nullable(),
+  
+  // Location fields
+  building: z.string().max(100).optional().nullable(),
+  floor: z.string().max(20).optional().nullable(),
+  room: z.string().max(50).optional().nullable(),
+  desk: z.string().max(50).optional().nullable(),
+  locationNotes: z.string().optional().nullable(),
+  
+  // Metadata
+  description: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  
+  // Conditional validation
+}).refine((data) => {
+  // If warranty expiry is set, purchase date should also be set
+  if (data.warrantyExpiry && !data.purchaseDate) {
+    return false
+  }
+  return true
+}, {
+  message: 'Purchase date is required when warranty expiry is set',
+  path: ['purchaseDate']
+}).refine((data) => {
+  // If warranty expiry is set, it should be after purchase date
+  if (data.warrantyExpiry && data.purchaseDate && data.warrantyExpiry <= data.purchaseDate) {
+    return false
+  }
+  return true
+}, {
+  message: 'Warranty expiry must be after purchase date',
+  path: ['warrantyExpiry']
 })
 
-export const userFormSchema = createUserSchema
-
-export const assignmentFormSchema = createAssignmentSchema.omit({ 
-  expectedReturnAt: true 
-}).extend({
-  expectedReturnAt: z.string().optional().nullable(),
+export const userFormSchema = createUserSchema.extend({
+  // Enhanced email validation
+  email: z.string()
+    .email('Please enter a valid email address')
+    .max(255, 'Email must be 255 characters or less')
+    .toLowerCase(),
+  
+  // Required role field
+  role: userRoleSchema,
+  
+  // Required isActive field
+  isActive: z.boolean(),
+  
+  // Enhanced phone validation
+  phone: z.string()
+    .regex(/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number')
+    .optional()
+    .nullable(),
+  
+  // Enhanced employee ID validation
+  employeeId: z.string()
+    .regex(/^[A-Z0-9]{3,10}$/, 'Employee ID must be 3-10 alphanumeric characters')
+    .optional()
+    .nullable(),
+  
+  // Enhanced name validation
+  name: z.string()
+    .min(2, 'Name must be at least 2 characters')
+    .max(255, 'Name must be 255 characters or less')
+    .regex(/^[a-zA-Z\s\-']+$/, 'Name can only contain letters, spaces, hyphens, and apostrophes'),
 })
 
-export const maintenanceFormSchema = createMaintenanceSchema.omit({ 
-  scheduledAt: true,
-  nextScheduledAt: true,
-  startedAt: true,
-  completedAt: true 
-}).extend({
-  scheduledAt: z.string().optional().nullable(),
-  nextScheduledAt: z.string().optional().nullable(),
-  startedAt: z.string().optional().nullable(),
-  completedAt: z.string().optional().nullable(),
+export const assignmentFormSchema = createAssignmentSchema.extend({
+  // Enhanced purpose validation
+  purpose: z.string()
+    .min(10, 'Purpose must be at least 10 characters')
+    .max(255, 'Purpose must be 255 characters or less')
+    .optional()
+    .nullable(),
+  
+  // Enhanced date validation
+  expectedReturnAt: z.coerce.date()
+    .min(new Date(), 'Expected return date must be in the future')
+    .optional()
+    .nullable(),
+  
+  // Enhanced notes validation
+  notes: z.string()
+    .max(1000, 'Notes must be 1000 characters or less')
+    .optional()
+    .nullable(),
+})
+
+export const maintenanceFormSchema = createMaintenanceSchema.extend({
+  // Enhanced title validation
+  title: z.string()
+    .min(5, 'Title must be at least 5 characters')
+    .max(255, 'Title must be 255 characters or less'),
+  
+  // Enhanced description validation
+  description: z.string()
+    .min(20, 'Description must be at least 20 characters')
+    .max(2000, 'Description must be 2000 characters or less'),
+  
+  // Enhanced date validation
+  scheduledAt: z.coerce.date()
+    .min(new Date(), 'Scheduled date must be in the future')
+    .optional()
+    .nullable(),
+  
+  completedAt: z.coerce.date()
+    .max(new Date(), 'Completion date cannot be in the future')
+    .optional()
+    .nullable(),
+  
+  // Conditional validation
+}).refine((data) => {
+  // If completed, completion date should be set
+  if (data.isCompleted && !data.completedAt) {
+    return false
+  }
+  return true
+}, {
+  message: 'Completion date is required when marking as completed',
+  path: ['completedAt']
+}).refine((data) => {
+  // If completed, completion date should be after start date
+  if (data.isCompleted && data.completedAt && data.startedAt && data.completedAt < data.startedAt) {
+    return false
+  }
+  return true
+}, {
+  message: 'Completion date must be after start date',
+  path: ['completedAt']
 })
 
 // ============================================================================
@@ -361,6 +577,11 @@ export type MaintenanceFormData = z.infer<typeof maintenanceFormSchema>
 
 // Bulk operation types
 export type BulkOperation = z.infer<typeof bulkOperationSchema>
+export type BulkImport = z.infer<typeof bulkImportSchema>
+export type AssetImportRow = z.infer<typeof assetImportRowSchema>
+export type UserImportRow = z.infer<typeof userImportRowSchema>
+export type AssignmentImportRow = z.infer<typeof assignmentImportRowSchema>
+export type ImportResult = z.infer<typeof importResultSchema>
 
 // Export types
 export type ExportRequest = z.infer<typeof exportRequestSchema>

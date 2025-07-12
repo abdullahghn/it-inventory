@@ -49,6 +49,7 @@ export const assetCategoryEnum = pgEnum('asset_category', [
 ])
 
 export const assetConditionEnum = pgEnum('asset_condition', [
+  'new',
   'excellent',
   'good', 
   'fair',

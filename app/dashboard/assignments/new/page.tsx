@@ -1,133 +1,168 @@
-import Link from 'next/link'
-import { db } from '@/lib/db'
-import { assets, user } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
-import { assignAsset } from '@/actions/assignments'
-import { requireRole } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { assets, user, assetAssignments } from '@/lib/db/schema'
+import { eq, and, isNull } from 'drizzle-orm'
+import { AssignmentForm } from '@/components/forms/assignment-form'
+import { createAssignment } from '@/actions/assignments'
 
-export default async function NewAssignmentPage({ 
-  searchParams 
-}: { 
-  searchParams: Promise<{ assetId?: string; userId?: string; notes?: string }> 
-}) {
-  try {
-    // Check permissions - only manager and above can assign assets
-    await requireRole('manager')
-  } catch (error) {
-    // Redirect to dashboard with error message
-    redirect('/dashboard?error=unauthorized')
+interface NewAssignmentPageProps {
+  searchParams: Promise<{ assetId?: string }>
+}
+
+export default async function NewAssignmentPage({ searchParams }: NewAssignmentPageProps) {
+  const session = await auth()
+  
+  if (!session?.user) {
+    redirect('/auth/signin')
   }
-  
-  // Await searchParams before using (Next.js 15 requirement)
+
+  // Check if user has permission to create assignments
+  const userRole = session.user.role
+  if (!['super_admin', 'admin', 'manager'].includes(userRole)) {
+    redirect('/dashboard')
+  }
+
+  // Get assetId from URL parameters
   const params = await searchParams
-  
-  // Optimized: Only fetch available assets with essential fields
-  const availableAssets = await db
-    .select({
-      id: assets.id,
-      name: assets.name,
-      category: assets.category,
-      serialNumber: assets.serialNumber,
-      status: assets.status,
+  const assetIdFromUrl = params.assetId ? parseInt(params.assetId) : null
+
+  // If assetId is provided, fetch that specific asset
+  let preSelectedAsset = null
+  let assetError = null
+  if (assetIdFromUrl && !isNaN(assetIdFromUrl)) {
+    preSelectedAsset = await db.query.assets.findFirst({
+      where: and(
+        eq(assets.id, assetIdFromUrl),
+        eq(assets.isDeleted, false),
+        eq(assets.status, 'available')
+      ),
+      columns: {
+        id: true,
+        assetTag: true,
+        name: true,
+        category: true,
+        status: true,
+        condition: true,
+        manufacturer: true,
+        model: true,
+      },
     })
-    .from(assets)
-    .where(eq(assets.status, 'available'))
-    .limit(100) // Limit for performance
-  
-  // Optimized: Only fetch essential user fields
-  const activeUsers = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-    })
-    .from(user)
-    .limit(100) // Limit for performance
-  
-  // Pre-populate form if URL params exist
-  const preSelectedAssetId = params.assetId
-  const preSelectedUserId = params.userId
-  const preFilledNotes = params.notes
+    
+    // If assetId was provided but asset not found or not available
+    if (!preSelectedAsset) {
+      const assetExists = await db.query.assets.findFirst({
+        where: eq(assets.id, assetIdFromUrl),
+        columns: { id: true, status: true, isDeleted: true }
+      })
+      
+      if (!assetExists) {
+        assetError = `Asset with ID ${assetIdFromUrl} not found.`
+      } else if (assetExists.isDeleted) {
+        assetError = `Asset with ID ${assetIdFromUrl} has been deleted.`
+      } else if (assetExists.status !== 'available') {
+        assetError = `Asset with ID ${assetIdFromUrl} is not available for assignment (status: ${assetExists.status}).`
+      }
+    }
+  }
+
+  // Fetch available assets (not assigned or available status)
+  const availableAssets = await db.query.assets.findMany({
+    where: and(
+      eq(assets.isDeleted, false),
+      eq(assets.status, 'available')
+    ),
+    columns: {
+      id: true,
+      assetTag: true,
+      name: true,
+      category: true,
+      status: true,
+      condition: true,
+      manufacturer: true,
+      model: true,
+    },
+    orderBy: assets.assetTag,
+  })
+
+  // Fetch active users
+  const availableUsers = await db.query.user.findMany({
+    where: eq(user.isActive, true),
+    columns: {
+      id: true,
+      name: true,
+      email: true,
+      department: true,
+      role: true,
+      isActive: true,
+    },
+    orderBy: user.name,
+  })
+
+  // Filter out null values to match expected types
+  const filteredAssets = availableAssets.filter(asset => 
+    asset.name && asset.manufacturer !== null
+  ) as any[]
+
+  const filteredUsers = availableUsers.filter(user => 
+    user.name !== null
+  ) as any[]
+
+  // Prepare initial data if asset is pre-selected
+  const initialData = preSelectedAsset ? {
+    assetId: preSelectedAsset.id,
+  } : undefined
+
+  /**
+   * Handles assignment creation with server-side validation
+   */
+  const handleCreateAssignment = async (data: any) => {
+    'use server'
+    
+    try {
+      await createAssignment({
+        ...data,
+        assignedBy: session.user.id,
+      })
+    } catch (error) {
+      console.error('Assignment creation error:', error)
+      throw new Error(error instanceof Error ? error.message : 'Failed to create assignment')
+    }
+  }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">New Assignment</h1>
-        <p className="text-gray-600">Assign equipment to a user</p>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Assign Asset</h1>
+          <p className="text-muted-foreground">
+            Assign an asset to a user with purpose and return date
+          </p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <form action={assignAsset} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Available Asset *
-              </label>
-              <select 
-                name="assetId" 
-                required
-                defaultValue={preSelectedAssetId || ""}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Choose an available asset</option>
-                {availableAssets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.name} - {asset.category} ({asset.serialNumber})
-                  </option>
-                ))}
-              </select>
-              {availableAssets.length === 0 && (
-                <p className="text-sm text-red-600 mt-1">No available assets found</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Assign to User *
-              </label>
-              <select 
-                name="userId" 
-                required
-                defaultValue={preSelectedUserId || ""}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Choose a user</option>
-                {activeUsers.map((userItem) => (
-                  <option key={userItem.id} value={userItem.id}>
-                    {userItem.name} ({userItem.email})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Assignment Notes
-            </label>
-            <textarea
-              name="notes"
-              rows={4}
-              defaultValue={preFilledNotes || ""}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter any notes about this assignment"
-            />
-          </div>
-          <div className="flex space-x-4">
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Create Assignment
-            </button>
-            <Link
-              href="/dashboard/assignments"
-              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
-      </div>
+      {assetError && (
+        <div className="p-4 border border-red-200 rounded-lg bg-red-50">
+          <h4 className="font-medium text-red-800 mb-2">Asset Error</h4>
+          <p className="text-sm text-red-700">{assetError}</p>
+          <p className="text-sm text-red-600 mt-2">
+            You can still proceed to assign a different asset using the search below.
+          </p>
+        </div>
+      )}
+
+      <AssignmentForm
+        onSubmit={handleCreateAssignment}
+        mode="create"
+        availableAssets={filteredAssets}
+        availableUsers={filteredUsers}
+        initialData={initialData}
+        preSelectedAsset={preSelectedAsset ? {
+          ...preSelectedAsset,
+          manufacturer: preSelectedAsset.manufacturer || undefined,
+          model: preSelectedAsset.model || undefined,
+        } : null}
+      />
     </div>
   )
 } 

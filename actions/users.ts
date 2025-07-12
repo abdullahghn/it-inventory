@@ -71,6 +71,37 @@ export async function updateUser(id: string, formData: FormData) {
   }
 }
 
+export async function updateUserData(id: string, userData: any) {
+  try {
+    // Check permissions - users can edit their own profile, managers+ can edit others
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      throw new Error('Authentication required')
+    }
+    
+    const isOwnProfile = currentUser.id === id
+    if (!isOwnProfile) {
+      // Editing someone else's profile requires manager+ permissions
+      await requireRole('manager')
+    }
+
+    // Basic validation
+    if (!userData.name || !userData.email) {
+      throw new Error('Name and email are required')
+    }
+
+    await db.update(user)
+      .set(userData)
+      .where(eq(user.id, id))
+
+    revalidatePath('/dashboard/users')
+    revalidatePath(`/dashboard/users/${id}`)
+  } catch (error) {
+    console.error('Failed to update user:', error)
+    throw new Error('Failed to update user')
+  }
+}
+
 export async function deactivateUser(id: string) {
   try {
     // Check permissions - only admin and above can deactivate users

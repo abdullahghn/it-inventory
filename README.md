@@ -1,84 +1,130 @@
-# IT Inventory System
+# IT Inventory Management System
 
-A comprehensive IT asset management web application built with Next.js 15, TypeScript, and modern web technologies.
+A comprehensive IT asset management system built with Next.js 15, React, TypeScript, PostgreSQL, Drizzle ORM, and NextAuth.js.
 
 ## 🚀 Features
 
-- **Asset Management**: Track IT assets with detailed information including serial numbers, purchase dates, warranties, and maintenance records
-- **User Management**: Manage system users with role-based access control
-- **Asset Assignment**: Assign and track assets to users with history and notes
-- **Maintenance Tracking**: Schedule and record maintenance activities
-- **Reporting**: Generate reports on asset utilization, user assignments, and maintenance schedules
-- **Authentication**: Secure authentication with Google OAuth via NextAuth.js
-- **Modern UI**: Beautiful and responsive interface built with Tailwind CSS and Shadcn/ui
+### Core Functionality
+- **Asset Management**: Complete lifecycle management of IT assets
+- **User Management**: Role-based user administration
+- **Assignment Tracking**: Asset assignment and return workflows
+- **Maintenance Records**: Preventive and corrective maintenance tracking
+- **Reporting & Analytics**: Comprehensive reporting dashboard
+- **Bulk Import/Export**: CSV/Excel data import and export capabilities
+- **Audit Trail**: Complete audit logging for compliance
+
+### Role-Based Access Control
+- **Super Admin**: Full system access and configuration
+- **Admin**: Asset and user management, assignment oversight
+- **Manager**: Department asset oversight, assignment approvals
+- **User**: View assigned assets, submit maintenance requests
+- **Viewer**: Read-only access to system data
 
 ## 🛠 Technology Stack
 
-### Core Technologies
-- **Next.js 15** - React framework with App Router
-- **React 18** - UI library
-- **TypeScript** - Type safety and developer experience
-- **Tailwind CSS 4.0** - Utility-first CSS framework
+- **Frontend**: Next.js 15, React 18, TypeScript
+- **Styling**: Tailwind CSS, shadcn/ui components
+- **Database**: PostgreSQL with Drizzle ORM
+- **Authentication**: NextAuth.js with Google OAuth
+- **Validation**: Zod schema validation
+- **Forms**: React Hook Form with Zod resolver
+- **State Management**: React hooks and server actions
+- **Testing**: Vitest, Playwright
+- **Deployment**: Vercel-ready configuration
 
-### UI Components
-- **Shadcn/ui** - Reusable UI components
-- **Radix UI** - Unstyled, accessible UI primitives
-- **Lucide React** - Beautiful icon library
+## 📋 Form Pages & Data Entry
 
-### Database & ORM
-- **Drizzle ORM** - Type-safe database toolkit
-- **PostgreSQL 16** - Primary database
+### Asset Management Forms
 
-### Authentication
-- **NextAuth.js v5** - Authentication for Next.js
-- **Google OAuth** - Social authentication provider
+#### Create New Asset (`/dashboard/assets/new`)
+- **Purpose**: Add new assets to the inventory system
+- **Features**:
+  - Auto-generated asset tags (format: CAT-YYYYMMDD-XXXX)
+  - Comprehensive asset details (technical specs, financial info, location)
+  - Real-time validation with Zod schemas
+  - Conditional field validation (warranty expiry requires purchase date)
+  - Role-based access control (admin, manager, super_admin)
 
-### State Management
-- **Zustand** - Client-side state management
-- **React Query** - Server state management and caching
+#### Edit Asset (`/dashboard/assets/[id]/edit`)
+- **Purpose**: Update existing asset information
+- **Features**:
+  - Pre-populated form with current asset data
+  - Validation of asset tag uniqueness
+  - Audit trail for all changes
+  - Permission checks for editing rights
 
-### Validation
-- **Zod** - Schema validation library
+**Asset Form Fields**:
+- Basic Information: Asset tag, name, category, subcategory
+- Technical Specs: Serial number, model, manufacturer, status, condition
+- Financial Data: Purchase date/price, current value, warranty expiry
+- Location: Building, floor, room, desk, location notes
+- Metadata: Description, notes
 
-### Testing
-- **Vitest** - Unit testing framework
-- **React Testing Library** - React component testing
-- **Playwright** - End-to-end testing
+### User Management Forms
 
-## 📁 Project Structure
+#### Create New User (`/dashboard/users/new`)
+- **Purpose**: Register new users with role assignments
+- **Features**:
+  - Email validation and uniqueness checking
+  - Role-based permission system
+  - Employee ID validation
+  - Phone number format validation
+  - Department and job title tracking
 
-```
-it-inventory/
-├── app/                      # Next.js App Router
-│   ├── dashboard/           # Dashboard pages
-│   │   ├── assets/          # Asset management pages
-│   │   ├── users/           # User management pages
-│   │   ├── assignments/     # Assignment management pages
-│   │   ├── maintenance/     # Maintenance tracking pages
-│   │   └── reports/         # Reporting pages
-│   ├── api/                 # API routes
-│   └── auth/                # Authentication pages
-├── components/              # Reusable UI components
-│   ├── ui/                  # Base UI components (Shadcn/ui)
-│   ├── forms/               # Form components
-│   ├── tables/              # Data table components
-│   └── dashboard/           # Dashboard-specific components
-├── lib/                     # Utility libraries
-│   ├── db/                  # Database configuration and schema
-│   ├── auth.ts              # NextAuth configuration
-│   ├── validations.ts       # Zod validation schemas
-│   └── utils.ts             # Utility functions
-├── actions/                 # Server actions
-├── types/                   # TypeScript type definitions
-└── tests/                   # Test files
-```
+#### Edit User Profile (`/dashboard/users/[id]/edit`)
+- **Purpose**: Update user information and roles
+- **Features**:
+  - Role permission validation
+  - Account status management
+  - Audit trail for role changes
+  - Prevention of self-deletion
 
-## 🚦 Getting Started
+**User Form Fields**:
+- Personal Info: Name, email, phone, employee ID
+- Professional: Department, job title
+- System Access: Role, account status
+- Role Descriptions: Clear permission explanations
+
+### Assignment Management Forms
+
+#### Create Assignment (`/dashboard/assignments/new`)
+- **Purpose**: Assign assets to users with purpose and return dates
+- **Features**:
+  - Searchable asset and user selection
+  - Real-time availability checking
+  - Purpose and return date validation
+  - Current assignment warnings
+  - Automatic asset status updates
+
+**Assignment Form Features**:
+- Asset Search: Filter by tag, name, manufacturer, model
+- User Search: Filter by name, email, department
+- Assignment Details: Purpose, expected return date, notes
+- Validation: Prevents double assignments, validates dates
+
+### Bulk Import System
+
+#### Import Page (`/dashboard/import`)
+- **Purpose**: Bulk import data from CSV/Excel files
+- **Features**:
+  - Multiple entity types (assets, users, assignments)
+  - File validation and parsing
+  - Progress tracking and error reporting
+  - Template downloads
+  - Update existing vs. create new options
+
+**Import Capabilities**:
+- **Assets**: Complete asset information import
+- **Users**: User registration with roles
+- **Assignments**: Asset-user assignments with validation
+- **Error Handling**: Detailed error reporting with row numbers
+- **Validation**: Server-side validation with rollback on errors
+
+## 🔧 Setup Instructions
 
 ### Prerequisites
-
-- Node.js 18 or higher
-- PostgreSQL 16
+- Node.js 18+ 
+- PostgreSQL 14+
 - Google OAuth credentials (for authentication)
 
 ### Installation
@@ -94,18 +140,14 @@ it-inventory/
    npm install
    ```
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env.local
-   ```
-   
-   Fill in the required environment variables:
+3. **Environment Configuration**
+   Create `.env.local` file:
    ```env
    # Database
    DATABASE_URL="postgresql://username:password@localhost:5432/it_inventory"
    
-   # NextAuth.js
-   NEXTAUTH_SECRET="your-secret-key-here"
+   # NextAuth
+   NEXTAUTH_SECRET="your-secret-key"
    NEXTAUTH_URL="http://localhost:3000"
    
    # Google OAuth
@@ -113,111 +155,170 @@ it-inventory/
    GOOGLE_CLIENT_SECRET="your-google-client-secret"
    ```
 
-4. **Set up the database**
+4. **Database Setup**
    ```bash
-   # Generate database schema
+   # Generate and run migrations
    npm run db:generate
-   
-   # Run migrations
    npm run db:migrate
    
-   # Or push schema changes directly (for development)
-   npm run db:push
+   # Seed initial data (optional)
+   npm run db:seed
    ```
 
-5. **Start the development server**
+5. **Start Development Server**
    ```bash
    npm run dev
    ```
 
-6. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+### Database Schema
 
-## 📝 Available Scripts
+The system uses a comprehensive PostgreSQL schema with:
+- **Users**: Authentication and role management
+- **Assets**: Complete asset information and tracking
+- **Assignments**: Asset-user assignment history
+- **Maintenance**: Maintenance records and scheduling
+- **Audit Logs**: Complete audit trail for compliance
+- **Locations**: Physical location management
 
-### Development
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
+### Validation System
 
-### Database
-- `npm run db:generate` - Generate Drizzle migrations
-- `npm run db:migrate` - Run database migrations
-- `npm run db:push` - Push schema changes to database
-- `npm run db:studio` - Open Drizzle Studio (database GUI)
+All forms use Zod schemas for validation:
 
-### Code Quality
-- `npm run lint` - Run ESLint
-- `npm run lint:fix` - Fix ESLint errors
-- `npm run format` - Format code with Prettier
-- `npm run format:check` - Check code formatting
-- `npm run type-check` - Run TypeScript type checking
+```typescript
+// Example: Asset validation schema
+export const assetFormSchema = createAssetSchema.extend({
+  assetTag: z.string()
+    .regex(/^[A-Z]{2,3}-\d{4,}$/, 'Invalid asset tag format'),
+  purchasePrice: z.string()
+    .regex(/^\d+(\.\d{1,2})?$/, 'Invalid price format'),
+  // ... more validation rules
+})
+```
 
-### Testing
-- `npm run test` - Run unit tests
-- `npm run test:ui` - Run tests with UI
-- `npm run test:coverage` - Run tests with coverage report
-- `npm run test:e2e` - Run end-to-end tests
-- `npm run test:e2e:ui` - Run E2E tests with UI
+### API Endpoints
 
-## 🏗 Database Schema
+The system provides RESTful API endpoints for all operations:
+- `POST /api/assets` - Create asset
+- `PUT /api/assets/[id]` - Update asset
+- `DELETE /api/assets/[id]` - Delete asset
+- `POST /api/users` - Create user
+- `POST /api/assignments` - Create assignment
+- `POST /api/import` - Bulk import
 
-The application uses PostgreSQL with the following main tables:
+## 🎨 UI/UX Features
 
-- **users** - System users and authentication
-- **assets** - IT assets and equipment
-- **asset_assignments** - Asset-to-user assignments
-- **maintenance_records** - Maintenance and service history
-- **accounts**, **sessions**, **verification_tokens** - NextAuth.js tables
+### Modern Design
+- Clean, professional interface using shadcn/ui components
+- Responsive design for all screen sizes
+- Dark/light mode support
+- Loading states and error handling
+- Toast notifications for user feedback
 
-## 🔐 Authentication
+### Form Enhancements
+- Real-time validation with error messages
+- Auto-completion and suggestions
+- File upload with progress tracking
+- Searchable dropdowns and selectors
+- Conditional field display
 
-The application uses NextAuth.js v5 with Google OAuth for authentication. Users can sign in with their Google accounts, and the system will create a user record in the database.
+### Data Visualization
+- Interactive charts and graphs
+- Filterable data tables
+- Export capabilities (CSV, Excel)
+- Dashboard widgets and metrics
 
-## 🎨 UI Components
+## 🔒 Security Features
 
-The application uses Shadcn/ui components built on top of Radix UI for accessibility and Tailwind CSS for styling. All components are fully customizable and follow modern design principles.
+### Authentication & Authorization
+- Google OAuth integration
+- Role-based access control
+- Session management
+- CSRF protection
 
-## 📊 Features Overview
+### Data Protection
+- Input validation and sanitization
+- SQL injection prevention
+- XSS protection
+- Audit trail for all changes
 
-### Asset Management
-- Add, edit, and delete IT assets
-- Track serial numbers, purchase information, and warranties
-- Monitor asset status (available, assigned, maintenance, retired)
-- Upload and manage asset images
+### API Security
+- Rate limiting
+- Request validation
+- Error handling without data leakage
+- Secure file upload validation
 
-### User Management
-- Manage system users and their roles
-- Department-based organization
+## 📊 Reporting & Analytics
+
+### Dashboard Metrics
+- Asset utilization rates
+- Assignment statistics
+- Maintenance schedules
 - User activity tracking
 
-### Assignment Tracking
-- Assign assets to users
-- Track assignment history
-- Manage asset returns with notes
-
-### Maintenance Management
-- Schedule preventive maintenance
-- Record corrective maintenance
-- Track maintenance costs and history
-
-### Reporting
-- Asset inventory summaries
-- User assignment reports
-- Maintenance schedules and history
-- Department-wise asset distribution
+### Export Capabilities
+- CSV/Excel export for all data
+- Custom report generation
+- Scheduled report delivery
+- Data visualization exports
 
 ## 🧪 Testing
 
-The project includes comprehensive testing setup:
+### Test Coverage
+```bash
+# Run unit tests
+npm run test
 
-- **Unit Tests**: Vitest + React Testing Library
-- **E2E Tests**: Playwright
-- **Type Safety**: TypeScript strict mode
+# Run integration tests
+npm run test:integration
 
-## 📄 License
+# Run E2E tests
+npm run test:e2e
+```
 
-This project is licensed under the MIT License.
+### Testing Strategy
+- Unit tests for validation schemas
+- Integration tests for API endpoints
+- E2E tests for critical user flows
+- Performance testing for bulk operations
+
+## 🚀 Deployment
+
+### Production Build
+```bash
+npm run build
+npm start
+```
+
+### Environment Variables
+Ensure all production environment variables are set:
+- Database connection string
+- OAuth credentials
+- Secret keys
+- API endpoints
+
+### Database Migration
+```bash
+npm run db:migrate:prod
+```
+
+## 📝 API Documentation
+
+### Authentication
+All API endpoints require authentication via NextAuth.js session.
+
+### Rate Limiting
+- 100 requests per minute per user
+- Bulk operations: 10 requests per minute
+
+### Error Handling
+All endpoints return consistent error responses:
+```json
+{
+  "error": "Error message",
+  "code": "ERROR_CODE",
+  "details": {}
+}
+```
 
 ## 🤝 Contributing
 
@@ -227,6 +328,17 @@ This project is licensed under the MIT License.
 4. Add tests for new functionality
 5. Submit a pull request
 
-## 📞 Support
+## 📄 License
 
-For support, please open an issue in the GitHub repository or contact the development team. 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue in the repository
+- Check the documentation
+- Review the audit logs for troubleshooting
+
+---
+
+**Built with ❤️ using modern web technologies** 

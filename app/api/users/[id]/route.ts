@@ -9,6 +9,8 @@ import {
 import { dbUtils } from '@/lib/db/utils'
 import { requireAuth, hasRole, getCurrentUser } from '@/lib/auth'
 import { eq, and } from 'drizzle-orm'
+import { count, isNull } from 'drizzle-orm'
+import { assetAssignments } from '@/lib/db/schema'
 
 // ============================================================================
 // GET /api/users/[id] - Get user profile with RBAC
@@ -389,6 +391,156 @@ export async function PUT(
         success: false,
         error: fieldError,
       }, { status: 409 })
+    }
+    
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+    }, { status: 500 })
+  }
+} 
+
+// ============================================================================
+// DELETE /api/users/[id] - Delete user with RBAC
+// ============================================================================
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Check authentication
+    const session = await requireAuth()
+    const currentUser = await getCurrentUser()
+    
+    if (!currentUser) {
+      return NextResponse.json({
+        success: false,
+        error: 'Current user not found',
+      }, { status: 404 })
+    }
+    
+    // Validate user ID
+    const { id } = await params
+    const userId = id
+    if (!userId || userId.trim() === '') {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid user ID',
+      }, { status: 400 })
+    }
+    
+    // RBAC: Only super_admin can delete users
+    const canDeleteUsers = await hasRole('super_admin')
+    
+    if (!canDeleteUsers) {
+      return NextResponse.json({
+        success: false,
+        error: 'Super admin role required to delete users',
+      }, { status: 403 })
+    }
+    
+    // Prevent self-deletion
+    if (currentUser.id === userId) {
+      console.log(`DELETE /api/users/${userId}: Self-deletion attempt blocked`)
+      return NextResponse.json({
+        success: false,
+        error: 'Cannot delete your own account',
+      }, { status: 400 })
+    }
+    
+    // Check if user exists and get current data
+    console.log(`DELETE /api/users/${userId}: Looking up user data`)
+    const existingUser = await dbUtils.findOne(
+      () => db
+        .select({
+          id: userTable.id,
+          name: userTable.name,
+          email: userTable.email,
+          role: userTable.role,
+          isActive: userTable.isActive,
+        })
+        .from(userTable)
+        .where(eq(userTable.id, userId))
+        .limit(1),
+      'User',
+      userId
+    )
+    console.log(`DELETE /api/users/${userId}: User found - ${existingUser.name} (${existingUser.role})`)
+    
+    // Prevent deletion of other super_admin users
+    if (existingUser.role === 'super_admin') {
+      return NextResponse.json({
+        success: false,
+        error: 'Cannot delete other super admin users',
+      }, { status: 403 })
+    }
+    
+    // Check if user has active asset assignments
+    const activeAssignments = await db
+      .select({ count: count() })
+      .from(assetAssignments)
+      .where(
+        and(
+          eq(assetAssignments.userId, userId),
+          eq(assetAssignments.isActive, true),
+          isNull(assetAssignments.returnedAt)
+        )
+      )
+    
+    if (activeAssignments[0]?.count > 0) {
+      console.log(`DELETE /api/users/${userId}: User has ${activeAssignments[0].count} active asset assignments`)
+      return NextResponse.json({
+        success: false,
+        error: 'Cannot delete user with active asset assignments. Please return all assigned assets first.',
+      }, { status: 400 })
+    }
+    
+    // Soft delete: Set isActive to false instead of actually deleting
+    // This preserves data integrity and allows for audit trails
+    const deletedUser = await dbUtils.update(
+      () => db
+        .update(userTable)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(userTable.id, userId))
+        .returning({
+          id: userTable.id,
+          name: userTable.name,
+          email: userTable.email,
+          role: userTable.role,
+          isActive: userTable.isActive,
+          updatedAt: userTable.updatedAt,
+        }),
+      'User',
+      userId
+    )
+    
+    return NextResponse.json({
+      success: true,
+      data: deletedUser,
+      message: `User ${existingUser.name || existingUser.email} has been deactivated successfully`,
+    })
+    
+  } catch (error: any) {
+    const { id: userIdForLog } = await params
+    console.error(`DELETE /api/users/${userIdForLog} error:`, error)
+    
+    if (error.message === 'Authentication required') {
+      return NextResponse.json({
+        success: false,
+        error: 'Authentication required',
+      }, { status: 401 })
+    }
+    
+    if (error.message.includes('not found')) {
+      return NextResponse.json({
+        success: false,
+        error: 'User not found',
+      }, { status: 404 })
     }
     
     return NextResponse.json({

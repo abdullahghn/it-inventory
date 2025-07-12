@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       const assignmentSubquery = db
         .select({ assetId: sql`asset_id` })
         .from(sql`asset_assignments`)
-        .where(sql`status = 'active'`)
+        .where(sql`status = 'active' AND returned_at IS NULL`)
       
       if (filters.isAssigned) {
         whereConditions.push(sql`${assets.id} IN (${assignmentSubquery})`)
