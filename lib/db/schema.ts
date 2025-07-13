@@ -229,6 +229,13 @@ export const assetAssignments = pgTable('asset_assignments', {
   notes: text('notes'),
   returnNotes: text('return_notes'),
   
+  // Location information (for assignment-specific location)
+  building: varchar('building', { length: 100 }),
+  floor: varchar('floor', { length: 20 }),
+  room: varchar('room', { length: 50 }),
+  desk: varchar('desk', { length: 50 }),
+  locationNotes: text('location_notes'),
+  
   // Tracking
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -243,6 +250,7 @@ export const assetAssignments = pgTable('asset_assignments', {
     returnedAtIdx: index('asset_assignments_returned_at_idx').on(table.returnedAt),
     expectedReturnAtIdx: index('asset_assignments_expected_return_at_idx').on(table.expectedReturnAt),
     assignedByIdx: index('asset_assignments_assigned_by_idx').on(table.assignedBy),
+    buildingIdx: index('asset_assignments_building_idx').on(table.building),
   }
 })
 
@@ -338,6 +346,17 @@ export const auditLogs = pgTable('audit_logs', {
 // ============================================================================
 // ADDITIONAL SYSTEM TABLES
 // ============================================================================
+
+export const assetCounters = pgTable('asset_counters', {
+  id: serial('id').primaryKey(),
+  category: assetCategoryEnum('category').notNull().unique(),
+  nextNumber: integer('next_number').default(1).notNull(),
+  lastUpdated: timestamp('last_updated').defaultNow().notNull(),
+}, (table) => {
+  return {
+    categoryIdx: index('asset_counters_category_idx').on(table.category),
+  }
+})
 
 export const locations = pgTable('locations', {
   id: serial('id').primaryKey(),

@@ -87,6 +87,12 @@ export const createAssignmentSchema = z.object({
   purpose: z.string().max(255).optional().nullable(),
   expectedReturnAt: z.coerce.date().optional().nullable(),
   notes: z.string().optional().nullable(),
+  // Location fields
+  building: z.string().max(100).optional().nullable(),
+  floor: z.string().max(20).optional().nullable(),
+  room: z.string().max(50).optional().nullable(),
+  desk: z.string().max(50).optional().nullable(),
+  locationNotes: z.string().optional().nullable(),
 })
 
 export const updateAssignmentSchema = z.object({
@@ -98,6 +104,12 @@ export const updateAssignmentSchema = z.object({
   expectedReturnAt: z.coerce.date().optional().nullable(),
   notes: z.string().optional().nullable(),
   purpose: z.string().max(255).optional().nullable(),
+  // Location fields
+  building: z.string().max(100).optional().nullable(),
+  floor: z.string().max(20).optional().nullable(),
+  room: z.string().max(50).optional().nullable(),
+  desk: z.string().max(50).optional().nullable(),
+  locationNotes: z.string().optional().nullable(),
 })
 
 export const returnAssignmentSchema = z.object({
@@ -379,7 +391,7 @@ export const assetFormSchema = z.object({
   assetTag: z.string()
     .min(1, 'Asset tag is required')
     .max(50, 'Asset tag must be 50 characters or less')
-    .regex(/^[A-Z]{2,3}-\d{4,}$/, 'Asset tag must follow format: IT-0001 or IT-00001'),
+    .regex(/^IT-[A-Z]{2,3}-\d{4}$/, 'Asset tag must follow format: IT-CAT-0001 (e.g., IT-LAP-0001)'),
   
   name: z.string().min(1, 'Asset name is required').max(255),
   category: assetCategorySchema,
@@ -393,7 +405,7 @@ export const assetFormSchema = z.object({
   status: assetStatusSchema,
   condition: assetConditionSchema,
   
-  // Financial fields
+  // Financial fields - make them truly optional
   purchaseDate: z.coerce.date()
     .max(new Date(), 'Purchase date cannot be in the future')
     .optional()
@@ -402,17 +414,20 @@ export const assetFormSchema = z.object({
   purchasePrice: z.string()
     .regex(/^\d+(\.\d{1,2})?$/, 'Price must be a valid number with up to 2 decimal places')
     .optional()
-    .nullable(),
+    .nullable()
+    .transform((val) => (val === '' ? null : val)),
   
   currentValue: z.string()
     .regex(/^\d+(\.\d{1,2})?$/, 'Value must be a valid number with up to 2 decimal places')
     .optional()
-    .nullable(),
+    .nullable()
+    .transform((val) => (val === '' ? null : val)),
   
   depreciationRate: z.string()
     .regex(/^\d+(\.\d{1,2})?$/, 'Rate must be a valid number with up to 2 decimal places')
     .optional()
-    .nullable(),
+    .nullable()
+    .transform((val) => (val === '' ? null : val)),
   
   warrantyExpiry: z.coerce.date()
     .min(new Date(), 'Warranty expiry must be in the future')
@@ -491,11 +506,11 @@ export const assignmentFormSchema = createAssignmentSchema.extend({
     .optional()
     .nullable(),
   
-  // Enhanced date validation
-  expectedReturnAt: z.coerce.date()
-    .min(new Date(), 'Expected return date must be in the future')
-    .optional()
-    .nullable(),
+  // Enhanced date validation - handle empty values properly
+  expectedReturnAt: z.union([
+    z.literal(''),
+    z.coerce.date().min(new Date(), 'Expected return date must be in the future')
+  ]).optional().nullable(),
   
   // Enhanced notes validation
   notes: z.string()

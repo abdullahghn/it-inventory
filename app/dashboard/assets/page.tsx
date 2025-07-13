@@ -339,10 +339,6 @@ export default async function AssetsPage({
       {/* Advanced Filters */}
       <div className="mb-6">
         <AdvancedAssetFilters 
-          onFiltersChange={(filters) => {
-            // This will be handled by the client component
-            console.log('Filters changed:', filters)
-          }}
           showSavedFilters={true}
         />
       </div>

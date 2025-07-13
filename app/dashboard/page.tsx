@@ -510,10 +510,14 @@ export default async function DashboardPage() {
             statusBreakdown={dashboardData.statusBreakdown}
             categoryBreakdown={dashboardData.categoryBreakdown}
             conditionBreakdown={dashboardData.conditionBreakdown}
-            departmentMetrics={(dashboardData.departmentMetrics || []).map((dept: any) => ({
-              ...dept,
-              department: dept.department || 'Unassigned'
-            }))}
+            departmentMetrics={(dashboardData.departmentMetrics || [])
+              .map((dept: any) => ({
+                ...dept,
+                department: dept.department || 'Unassigned'
+              }))
+              .filter((dept: any, index: number, arr: any[]) => 
+                arr.findIndex((d: any) => d.department === dept.department) === index
+              )}
           />
         </TabsContent>
 
@@ -541,7 +545,7 @@ export default async function DashboardPage() {
         {/* Reports Tab */}
         <TabsContent value="reports" className="space-y-4">
           <ReportsExport 
-            departments={(dashboardData.departmentMetrics || []).map((d: any) => d.department || 'Unassigned')}
+            departments={[...new Set((dashboardData.departmentMetrics || []).map((d: any) => d.department || 'Unassigned'))]}
             categories={dashboardData.categoryBreakdown.map((c: any) => c.category)}
             conditions={dashboardData.conditionBreakdown.map((c: any) => c.condition)}
             statuses={dashboardData.statusBreakdown.map((s: any) => s.status)}

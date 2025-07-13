@@ -4,13 +4,12 @@ import { db } from '@/lib/db'
 import { assets } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { AssetForm } from '@/components/forms/asset-form'
-import { updateAsset } from '@/actions/assets'
 import { notFound } from 'next/navigation'
 
 interface EditAssetPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function EditAssetPage({ params }: EditAssetPageProps) {
@@ -27,7 +26,8 @@ export default async function EditAssetPage({ params }: EditAssetPageProps) {
   }
 
   // Fetch the asset data
-  const assetId = parseInt(params.id)
+  const resolvedParams = await params
+  const assetId = parseInt(resolvedParams.id)
   if (isNaN(assetId)) {
     notFound()
   }
@@ -46,31 +46,9 @@ export default async function EditAssetPage({ params }: EditAssetPageProps) {
     // For now, allow managers to edit all assets
   }
 
-  /**
-   * Handles asset update with server-side validation
-   */
-  const handleUpdateAsset = async (data: any) => {
-    'use server'
-    
-    try {
-      // Convert string values to appropriate types for database
-      const assetData = {
-        ...data,
-        id: assetId,
-        purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice) : null,
-        currentValue: data.currentValue ? parseFloat(data.currentValue) : null,
-        depreciationRate: data.depreciationRate ? parseFloat(data.depreciationRate) : null,
-      }
-
-      await updateAsset(assetData)
-    } catch (error) {
-      console.error('Asset update error:', error)
-      throw new Error(error instanceof Error ? error.message : 'Failed to update asset')
-    }
-  }
-
   // Prepare initial data for the form
   const initialData = {
+    id: assetId,
     assetTag: asset.assetTag,
     name: asset.name,
     category: asset.category,
@@ -107,7 +85,6 @@ export default async function EditAssetPage({ params }: EditAssetPageProps) {
 
       <AssetForm
         initialData={initialData}
-        onSubmit={handleUpdateAsset}
         mode="edit"
       />
     </div>

@@ -8,9 +8,9 @@ import { updateUserData } from '@/actions/users'
 import { notFound } from 'next/navigation'
 
 interface EditUserPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function EditUserPage({ params }: EditUserPageProps) {
@@ -27,7 +27,8 @@ export default async function EditUserPage({ params }: EditUserPageProps) {
   }
 
   // Fetch the user data
-  const userId = params.id
+  const resolvedParams = await params
+  const userId = resolvedParams.id
   const userData = await db.query.user.findFirst({
     where: eq(user.id, userId),
   })

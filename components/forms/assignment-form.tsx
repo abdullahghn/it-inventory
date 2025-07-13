@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { assignmentFormSchema, type AssignmentFormData } from '@/lib/validations'
 import { assignmentStatusEnum } from '@/lib/db/schema'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Save, X, Search, User, Package, Calendar, FileText } from 'lucide-react'
+import { Loader2, Save, X, Search, User, Package, Calendar, FileText, MapPin } from 'lucide-react'
 
 interface User {
   id: string
@@ -37,7 +38,7 @@ interface Asset {
 
 interface AssignmentFormProps {
   initialData?: Partial<AssignmentFormData>
-  onSubmit: (data: AssignmentFormData) => Promise<void>
+  onSubmit: (data: AssignmentFormData) => Promise<any>
   onCancel?: () => void
   isLoading?: boolean
   mode?: 'create' | 'edit'
@@ -59,11 +60,13 @@ export function AssignmentForm({
   preSelectedAsset
 }: AssignmentFormProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const [searchAsset, setSearchAsset] = useState('')
   const [searchUser, setSearchUser] = useState('')
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [hasUserChangedAsset, setHasUserChangedAsset] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<AssignmentFormData>({
     resolver: zodResolver(assignmentFormSchema),
@@ -73,6 +76,11 @@ export function AssignmentForm({
       purpose: initialData?.purpose || '',
       expectedReturnAt: initialData?.expectedReturnAt || null,
       notes: initialData?.notes || '',
+      building: initialData?.building || '',
+      floor: initialData?.floor || '',
+      room: initialData?.room || '',
+      desk: initialData?.desk || '',
+      locationNotes: initialData?.locationNotes || '',
     },
   })
 
@@ -136,13 +144,55 @@ export function AssignmentForm({
    * Handles form submission with validation and error handling
    */
   const handleSubmit = async (data: AssignmentFormData) => {
+    if (isSubmitting) return
+    
+    setIsSubmitting(true)
     try {
-      await onSubmit(data)
-      toast({
-        type: 'success',
-        title: 'Success',
-        description: `Assignment ${mode === 'create' ? 'created' : 'updated'} successfully`,
-      })
+      // Handle empty expectedReturnAt values
+      const formData = {
+        ...data,
+        expectedReturnAt: data.expectedReturnAt === '' ? null : data.expectedReturnAt
+      }
+      
+      const result = await onSubmit(formData)
+      
+      // Check if the result indicates success
+      if (result && typeof result === 'object' && 'success' in result) {
+        if (result.success) {
+          toast({
+            type: 'success',
+            title: 'Success',
+            description: result.message || `Assignment ${mode === 'create' ? 'created' : 'updated'} successfully`,
+          })
+          
+          // Redirect to assignments page after successful creation
+          if (mode === 'create') {
+            setTimeout(() => {
+              router.push('/dashboard/assignments')
+            }, 1000)
+          }
+        } else {
+          toast({
+            type: 'error',
+            title: 'Error',
+            description: result.error || 'Failed to save assignment',
+          })
+        }
+      } else {
+        // Fallback for non-structured responses
+        toast({
+          type: 'success',
+          title: 'Success',
+          description: `Assignment ${mode === 'create' ? 'created' : 'updated'} successfully`,
+        })
+        
+        // Redirect to assignments page after successful creation
+        if (mode === 'create') {
+          setTimeout(() => {
+            router.push('/dashboard/assignments')
+          }, 1000)
+        }
+      }
     } catch (error) {
       console.error('Assignment form submission error:', error)
       toast({
@@ -150,6 +200,8 @@ export function AssignmentForm({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to save assignment',
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -160,7 +212,7 @@ export function AssignmentForm({
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             {mode === 'create' ? 'Assign Asset' : 'Edit Assignment'}
-            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {(isLoading || isSubmitting) && <Loader2 className="h-4 w-4 animate-spin" />}
           </CardTitle>
           <CardDescription>
             {mode === 'create' 
@@ -372,7 +424,7 @@ export function AssignmentForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Purpose */}
               <div className="space-y-2">
-                <Label htmlFor="purpose">Purpose *</Label>
+                <Label htmlFor="purpose">Purpose</Label>
                 <Textarea
                   id="purpose"
                   {...form.register('purpose')}
@@ -383,6 +435,9 @@ export function AssignmentForm({
                 {form.formState.errors.purpose && (
                   <p className="text-sm text-red-500">{form.formState.errors.purpose.message}</p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  Optional: Describe why this asset is being assigned
+                </p>
               </div>
 
               {/* Expected Return Date */}
@@ -419,6 +474,68 @@ export function AssignmentForm({
             </div>
           </div>
 
+          {/* Location Information Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Location Information
+            </h3>
+            <Separator />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Building */}
+              <div className="space-y-2">
+                <Label htmlFor="building">Building</Label>
+                <Input
+                  id="building"
+                  {...form.register('building')}
+                  placeholder="Main Building, Annex, etc."
+                />
+              </div>
+
+              {/* Floor */}
+              <div className="space-y-2">
+                <Label htmlFor="floor">Floor</Label>
+                <Input
+                  id="floor"
+                  {...form.register('floor')}
+                  placeholder="1st, 2nd, Ground, etc."
+                />
+              </div>
+
+              {/* Room */}
+              <div className="space-y-2">
+                <Label htmlFor="room">Room</Label>
+                <Input
+                  id="room"
+                  {...form.register('room')}
+                  placeholder="101, Conference Room, etc."
+                />
+              </div>
+
+              {/* Desk */}
+              <div className="space-y-2">
+                <Label htmlFor="desk">Desk/Station</Label>
+                <Input
+                  id="desk"
+                  {...form.register('desk')}
+                  placeholder="A1, B2, Workstation 1, etc."
+                />
+              </div>
+            </div>
+
+            {/* Location Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="locationNotes">Location Notes</Label>
+              <Textarea
+                id="locationNotes"
+                {...form.register('locationNotes')}
+                placeholder="Additional location details or instructions"
+                rows={2}
+              />
+            </div>
+          </div>
+
           {/* Current Assignment Warning */}
           {currentAssignment && (
             <div className="p-4 border border-yellow-200 rounded-lg bg-yellow-50">
@@ -443,10 +560,11 @@ export function AssignmentForm({
         )}
         <Button 
           type="submit" 
-          disabled={isLoading || !selectedAsset || !selectedUser}
+          disabled={isLoading || isSubmitting || !selectedAsset || !selectedUser}
         >
-          <Save className="h-4 w-4 mr-2" />
-          {isLoading ? 'Saving...' : mode === 'create' ? 'Create Assignment' : 'Update Assignment'}
+          {(isLoading || isSubmitting) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {!isLoading && !isSubmitting && <Save className="h-4 w-4 mr-2" />}
+          {isLoading || isSubmitting ? 'Saving...' : mode === 'create' ? 'Create Assignment' : 'Update Assignment'}
         </Button>
       </div>
     </form>

@@ -123,6 +123,11 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
       assignedBy: assetAssignments.assignedBy,
       returnedBy: assetAssignments.returnedBy,
       actualReturnCondition: assetAssignments.actualReturnCondition,
+      building: assetAssignments.building,
+      floor: assetAssignments.floor,
+      room: assetAssignments.room,
+      desk: assetAssignments.desk,
+      locationNotes: assetAssignments.locationNotes,
     })
     .from(assetAssignments)
     .leftJoin(user, eq(assetAssignments.userId, user.id))
@@ -419,35 +424,80 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               Location
             </h3>
             <div className="space-y-3">
-              {assetData.building && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Building</label>
-                  <p className="text-gray-900">{assetData.building}</p>
-                </div>
-              )}
-              {assetData.floor && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Floor</label>
-                  <p className="text-gray-900">{assetData.floor}</p>
-                </div>
-              )}
-              {assetData.room && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Room</label>
-                  <p className="text-gray-900">{assetData.room}</p>
-                </div>
-              )}
-              {assetData.desk && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Desk</label>
-                  <p className="text-gray-900">{assetData.desk}</p>
-                </div>
-              )}
-              {assetData.locationNotes && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Location Notes</label>
-                  <p className="text-gray-900">{assetData.locationNotes}</p>
-                </div>
+              {currentAssignment ? (
+                // Show assignment location if asset is currently assigned
+                <>
+                  {currentAssignment.building && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Building</label>
+                      <p className="text-gray-900">{currentAssignment.building}</p>
+                    </div>
+                  )}
+                  {currentAssignment.floor && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Floor</label>
+                      <p className="text-gray-900">{currentAssignment.floor}</p>
+                    </div>
+                  )}
+                  {currentAssignment.room && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Room</label>
+                      <p className="text-gray-900">{currentAssignment.room}</p>
+                    </div>
+                  )}
+                  {currentAssignment.desk && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Desk</label>
+                      <p className="text-gray-900">{currentAssignment.desk}</p>
+                    </div>
+                  )}
+                  {currentAssignment.locationNotes && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Location Notes</label>
+                      <p className="text-gray-900">{currentAssignment.locationNotes}</p>
+                    </div>
+                  )}
+                  {!currentAssignment.building && !currentAssignment.floor && !currentAssignment.room && !currentAssignment.desk && !currentAssignment.locationNotes && (
+                    <p className="text-gray-500 text-sm">No location information available for current assignment</p>
+                  )}
+                </>
+              ) : (
+                // Show asset's default location if not assigned
+                <>
+                  {assetData.building && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Building</label>
+                      <p className="text-gray-900">{assetData.building}</p>
+                    </div>
+                  )}
+                  {assetData.floor && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Floor</label>
+                      <p className="text-gray-900">{assetData.floor}</p>
+                    </div>
+                  )}
+                  {assetData.room && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Room</label>
+                      <p className="text-gray-900">{assetData.room}</p>
+                    </div>
+                  )}
+                  {assetData.desk && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Desk</label>
+                      <p className="text-gray-900">{assetData.desk}</p>
+                    </div>
+                  )}
+                  {assetData.locationNotes && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Location Notes</label>
+                      <p className="text-gray-900">{assetData.locationNotes}</p>
+                    </div>
+                  )}
+                  {!assetData.building && !assetData.floor && !assetData.room && !assetData.desk && !assetData.locationNotes && (
+                    <p className="text-gray-500 text-sm">No location information available</p>
+                  )}
+                </>
               )}
             </div>
           </div>

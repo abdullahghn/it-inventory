@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { assetAssignments, assets, user } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
-import { returnAsset } from '@/actions/assignments'
+import { returnAssignment } from '@/actions/assignments'
 
 export default async function AssignmentDetailPage({
   params
@@ -17,7 +17,7 @@ export default async function AssignmentDetailPage({
   async function handleReturnAsset(formData: FormData) {
     'use server'
     const assignmentId = parseInt(formData.get('assignmentId') as string)
-    await returnAsset({ assignmentId })
+    await returnAssignment({ assignmentId })
   }
 
   // Fetch assignment with asset and user details

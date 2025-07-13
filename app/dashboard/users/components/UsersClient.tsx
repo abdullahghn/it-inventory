@@ -155,9 +155,19 @@ export function UsersClient({
       header: 'Role',
       cell: ({ row }) => {
         const role = row.getValue('role') as string
+        const getRoleDisplay = (role: string) => {
+          switch (role) {
+            case 'super_admin': return 'Super Admin'
+            case 'admin': return 'Admin'
+            case 'manager': return 'Manager'
+            case 'user': return 'User'
+            case 'viewer': return 'Viewer'
+            default: return role.replace('_', ' ')
+          }
+        }
         return (
-          <Badge variant={getRoleBadgeVariant(role)}>
-            {role.replace('_', ' ')}
+          <Badge variant={getRoleBadgeVariant(role)} className="whitespace-nowrap">
+            {getRoleDisplay(role)}
           </Badge>
         )
       },
@@ -259,7 +269,7 @@ export function UsersClient({
         action={
           canCreateUsers ? (
             <Button _asChild>
-              <Link href="/dashboard/users/new">
+              <Link href="/dashboard/users/new" className="flex items-center">
                 <Plus className="mr-2 h-4 w-4" />
                 Add User
               </Link>
@@ -271,7 +281,7 @@ export function UsersClient({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Users ({users.length})</h2>
@@ -284,7 +294,7 @@ export function UsersClient({
           </Button>
           {canCreateUsers && (
             <Button _asChild>
-              <Link href="/dashboard/users/new">
+              <Link href="/dashboard/users/new" className="flex items-center">
                 <Plus className="mr-2 h-4 w-4" />
                 Add User
               </Link>
@@ -293,7 +303,9 @@ export function UsersClient({
         </div>
       </div>
 
-      <DataTable columns={columns} data={users} />
+      <div className="mt-6">
+        <DataTable columns={columns} data={users} />
+      </div>
 
       <DeleteConfirmationModal
         isOpen={deleteModalOpen}

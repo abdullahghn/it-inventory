@@ -34,8 +34,7 @@ export default async function NewAssignmentPage({ searchParams }: NewAssignmentP
     preSelectedAsset = await db.query.assets.findFirst({
       where: and(
         eq(assets.id, assetIdFromUrl),
-        eq(assets.isDeleted, false),
-        eq(assets.status, 'available')
+        eq(assets.isDeleted, false)
       ),
       columns: {
         id: true,
@@ -49,7 +48,7 @@ export default async function NewAssignmentPage({ searchParams }: NewAssignmentP
       },
     })
     
-    // If assetId was provided but asset not found or not available
+    // If assetId was provided but asset not found
     if (!preSelectedAsset) {
       const assetExists = await db.query.assets.findFirst({
         where: eq(assets.id, assetIdFromUrl),
@@ -60,8 +59,6 @@ export default async function NewAssignmentPage({ searchParams }: NewAssignmentP
         assetError = `Asset with ID ${assetIdFromUrl} not found.`
       } else if (assetExists.isDeleted) {
         assetError = `Asset with ID ${assetIdFromUrl} has been deleted.`
-      } else if (assetExists.status !== 'available') {
-        assetError = `Asset with ID ${assetIdFromUrl} is not available for assignment (status: ${assetExists.status}).`
       }
     }
   }
@@ -120,13 +117,17 @@ export default async function NewAssignmentPage({ searchParams }: NewAssignmentP
     'use server'
     
     try {
-      await createAssignment({
+      const result = await createAssignment({
         ...data,
         assignedBy: session.user.id,
       })
+      return result
     } catch (error) {
       console.error('Assignment creation error:', error)
-      throw new Error(error instanceof Error ? error.message : 'Failed to create assignment')
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create assignment'
+      }
     }
   }
 

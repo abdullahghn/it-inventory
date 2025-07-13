@@ -213,7 +213,7 @@ export function DataTable<TData, TValue>({
   return (
     <div className={cn("w-full", className)}>
       {/* Filter and Actions Bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <DataTableFilter
           table={table}
           searchKey={searchKey}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,13 +16,30 @@ import { assetFormSchema, type AssetFormData } from '@/lib/validations'
 import { assetCategoryEnum, assetStatusEnum, assetConditionEnum } from '@/lib/db/schema'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Save, X, RefreshCw } from 'lucide-react'
+import { createAsset } from '@/actions/assets'
+import { updateAsset } from '@/actions/assets'
 
 interface AssetFormProps {
-  initialData?: Partial<AssetFormData>
-  onSubmit: (data: AssetFormData) => Promise<void>
+  initialData?: Partial<AssetFormData> & { id?: number }
+  onSubmit?: (data: AssetFormData) => Promise<void>
   onCancel?: () => void
   isLoading?: boolean
   mode?: 'create' | 'edit'
+}
+
+// Category to prefix mapping for better asset tag generation
+const CATEGORY_PREFIXES: Record<string, string> = {
+  laptop: 'LAP',
+  desktop: 'DESK',
+  monitor: 'MON',
+  printer: 'PRN',
+  phone: 'PHN',
+  tablet: 'TAB',
+  server: 'SVR',
+  network_device: 'NET',
+  software_license: 'SW',
+  toner: 'TON',
+  other: 'OTH'
 }
 
 export function AssetForm({ 
@@ -32,7 +50,11 @@ export function AssetForm({
   mode = 'create' 
 }: AssetFormProps) {
   const [isGeneratingTag, setIsGeneratingTag] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [tagUpdated, setTagUpdated] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
   
   const form = useForm<AssetFormData>({
     resolver: zodResolver(assetFormSchema),
@@ -59,33 +81,109 @@ export function AssetForm({
     },
   })
 
-  // Auto-generate asset tag for new assets
+  // Auto-generate asset tag for new assets on initial load
   useEffect(() => {
     if (mode === 'create' && !form.getValues('assetTag')) {
       generateAssetTag()
     }
+    // Mark form as initialized after a short delay
+    const timer = setTimeout(() => {
+      setIsInitialized(true)
+    }, 500)
+    return () => clearTimeout(timer)
   }, [mode, form])
 
+  // Auto-update asset tag when category changes (only for create mode)
+  useEffect(() => {
+    if (mode === 'create' && isInitialized) {
+      const subscription = form.watch((value, { name }) => {
+        if (name === 'category' && value.category && isInitialized) {
+          // Add a small delay to avoid immediate updates during form initialization
+          setTimeout(() => {
+            updateAssetTagForCategory(value.category)
+          }, 100)
+        }
+      })
+      return () => subscription.unsubscribe()
+    }
+  }, [form, mode, isInitialized])
+
   /**
-   * Generates a unique asset tag based on category and current timestamp
-   * Format: CAT-YYYYMMDD-XXXX (e.g., LAP-20241201-0001)
+   * Updates asset tag when category changes
+   */
+  const updateAssetTagForCategory = async (category: string | undefined) => {
+    if (!category) return
+    
+    setIsGeneratingTag(true)
+    try {
+      // Call the API to get the next auto-incrementing tag
+      const response = await fetch(`/api/assets/next-tag?category=${encodeURIComponent(category)}`)
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate asset tag')
+      }
+      
+      const { assetTag } = result.data
+      form.setValue('assetTag', assetTag)
+      setTagUpdated(true)
+      
+      // Show visual feedback
+      toast({
+        type: 'success',
+        title: 'Asset tag updated',
+        description: `Updated to: ${assetTag} for ${category}`,
+      })
+      
+      // Reset the visual feedback after 2 seconds
+      setTimeout(() => {
+        setTagUpdated(false)
+      }, 2000)
+    } catch (error) {
+      console.error('Error updating asset tag:', error)
+      toast({
+        type: 'error',
+        title: 'Error updating tag',
+        description: 'Failed to update asset tag. Please refresh manually.',
+      })
+    } finally {
+      setIsGeneratingTag(false)
+    }
+  }
+
+  /**
+   * Generates a unique asset tag using auto-incrementing API
+   * Format: IT-{CATEGORY_PREFIX}-{SEQUENTIAL_NUMBER}
    */
   const generateAssetTag = async () => {
     setIsGeneratingTag(true)
     try {
       const category = form.getValues('category')
-      const categoryPrefix = category.toUpperCase().substring(0, 3)
-      const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-      const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-      const newTag = `${categoryPrefix}-${date}-${randomSuffix}`
       
-      form.setValue('assetTag', newTag)
+      // Call the API to get the next auto-incrementing tag
+      const response = await fetch(`/api/assets/next-tag?category=${encodeURIComponent(category)}`)
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate asset tag')
+      }
+      
+      const { assetTag } = result.data
+      form.setValue('assetTag', assetTag)
+      setTagUpdated(true)
+      
       toast({
         type: 'success',
         title: 'Asset tag generated',
-        description: `Generated tag: ${newTag}`,
+        description: `Generated tag: ${assetTag}`,
       })
+      
+      // Reset the visual feedback after 2 seconds
+      setTimeout(() => {
+        setTagUpdated(false)
+      }, 2000)
     } catch (error) {
+      console.error('Error generating asset tag:', error)
       toast({
         type: 'error',
         title: 'Error generating tag',
@@ -100,39 +198,68 @@ export function AssetForm({
    * Handles form submission with validation and error handling
    */
   const handleSubmit = async (data: any) => {
+    // Validate that ID is present for edit mode
+    if (mode === 'edit' && !initialData?.id) {
+      toast({
+        type: 'error',
+        title: 'Error',
+        description: 'Asset ID is required for editing',
+      })
+      return
+    }
+    
+    setIsSubmitting(true)
     try {
-      // Convert the form data to the expected AssetFormData type
-      const assetData: AssetFormData = {
-        assetTag: data.assetTag,
-        name: data.name,
-        category: data.category,
-        subcategory: data.subcategory,
-        serialNumber: data.serialNumber,
-        model: data.model,
-        manufacturer: data.manufacturer,
-        status: data.status,
-        condition: data.condition,
-        purchaseDate: data.purchaseDate,
-        purchasePrice: data.purchasePrice,
-        currentValue: data.currentValue,
-        depreciationRate: data.depreciationRate,
-        warrantyExpiry: data.warrantyExpiry,
-        building: data.building,
-        floor: data.floor,
-        room: data.room,
-        desk: data.desk,
-        locationNotes: data.locationNotes,
-        description: data.description,
-        notes: data.notes,
-        specifications: data.specifications,
+      // Clean up the data - convert empty strings to null for optional fields
+      const cleanedData: any = {
+        ...data,
+        // Include ID for edit mode
+        ...(mode === 'edit' && initialData?.id ? { id: initialData.id } : {}),
+        // Handle date fields - convert empty strings to null
+        purchaseDate: data.purchaseDate && data.purchaseDate !== '' ? data.purchaseDate : null,
+        warrantyExpiry: data.warrantyExpiry && data.warrantyExpiry !== '' ? data.warrantyExpiry : null,
+        // Handle string fields - convert empty strings to null
+        purchasePrice: data.purchasePrice && data.purchasePrice !== '' ? data.purchasePrice : null,
+        currentValue: data.currentValue && data.currentValue !== '' ? data.currentValue : null,
+        depreciationRate: data.depreciationRate && data.depreciationRate !== '' ? data.depreciationRate : null,
+        subcategory: data.subcategory && data.subcategory !== '' ? data.subcategory : null,
+        serialNumber: data.serialNumber && data.serialNumber !== '' ? data.serialNumber : null,
+        model: data.model && data.model !== '' ? data.model : null,
+        manufacturer: data.manufacturer && data.manufacturer !== '' ? data.manufacturer : null,
+        building: data.building && data.building !== '' ? data.building : null,
+        floor: data.floor && data.floor !== '' ? data.floor : null,
+        room: data.room && data.room !== '' ? data.room : null,
+        desk: data.desk && data.desk !== '' ? data.desk : null,
+        description: data.description && data.description !== '' ? data.description : null,
+        notes: data.notes && data.notes !== '' ? data.notes : null,
       }
       
-      await onSubmit(assetData)
+      if (onSubmit) {
+        await onSubmit(cleanedData)
+      } else if (mode === 'create') {
+        // Use server action directly for create mode
+        const result = await createAsset(cleanedData)
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to create asset')
+        }
+      } else if (mode === 'edit') {
+        // Use server action directly for edit mode
+        const result = await updateAsset(cleanedData)
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to update asset')
+        }
+      }
+      
       toast({
         type: 'success',
         title: 'Success',
         description: `Asset ${mode === 'create' ? 'created' : 'updated'} successfully`,
       })
+      
+      // Redirect to assets page after successful creation or update
+      setTimeout(() => {
+        router.push('/dashboard/assets')
+      }, 1000)
     } catch (error) {
       console.error('Asset form submission error:', error)
       toast({
@@ -140,6 +267,8 @@ export function AssetForm({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to save asset',
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -173,7 +302,13 @@ export function AssetForm({
                     id="assetTag"
                     {...form.register('assetTag')}
                     placeholder="IT-0001"
-                    className={form.formState.errors.assetTag ? 'border-red-500' : ''}
+                    className={`transition-all duration-300 ${
+                      form.formState.errors.assetTag 
+                        ? 'border-red-500' 
+                        : tagUpdated 
+                        ? 'border-green-500 bg-green-50' 
+                        : ''
+                    }`}
                   />
                   {mode === 'create' && (
                     <Button
@@ -182,6 +317,7 @@ export function AssetForm({
                       size="icon"
                       onClick={generateAssetTag}
                       disabled={isGeneratingTag}
+                      title="Generate new asset tag"
                     >
                       {isGeneratingTag ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -193,6 +329,11 @@ export function AssetForm({
                 </div>
                 {form.formState.errors.assetTag && (
                   <p className="text-sm text-red-500">{form.formState.errors.assetTag.message}</p>
+                )}
+                {tagUpdated && (
+                  <p className="text-sm text-green-600 animate-pulse">
+                    ✓ Asset tag updated automatically
+                  </p>
                 )}
               </div>
 
@@ -212,7 +353,14 @@ export function AssetForm({
 
               {/* Category */}
               <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
+                <Label htmlFor="category">
+                  Category * 
+                  {mode === 'create' && (
+                    <span className="text-xs text-gray-500 ml-2">
+                      (Changing category will auto-update asset tag)
+                    </span>
+                  )}
+                </Label>
                 <Select
                   value={form.watch('category')}
                   onValueChange={(value) => form.setValue('category', value as any)}
@@ -492,9 +640,13 @@ export function AssetForm({
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={isLoading}>
-          <Save className="h-4 w-4 mr-2" />
-          {isLoading ? 'Saving...' : mode === 'create' ? 'Create Asset' : 'Update Asset'}
+        <Button type="submit" disabled={isLoading || isSubmitting}>
+          {isSubmitting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          {isLoading || isSubmitting ? 'Saving...' : mode === 'create' ? 'Create Asset' : 'Update Asset'}
         </Button>
       </div>
     </form>
